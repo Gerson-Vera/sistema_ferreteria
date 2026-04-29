@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(json|ts|tsx|js|jsx\\)$\")",
+      "Bash(npm uninstall *)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(npm list *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/marcas/[id])",
+      "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/tipos-pago/[id])",
+      "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/almacenes/[id])",
+      "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/cajas/[id])",
+      "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/unidades-medida/[id])"
+    ]
+  }
+}

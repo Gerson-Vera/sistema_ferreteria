@@ -1,0 +1,440 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ══════════════════════════════════════════
+//  AUTENTICACIÓN Y PERMISOS
+// ══════════════════════════════════════════
+
+model Usuario {
+  id            Int           @id @default(autoincrement())
+  username      String        @unique
+  email         String        @unique
+  password      String
+  nombre        String
+  estado        Boolean       @default(true)
+  creadoEn      DateTime      @default(now()) @map("creado_en")
+  actualizadoEn DateTime      @updatedAt      @map("actualizado_en")
+
+  roles                 RolUsuario[]
+  menus                 MenuUsuario[]
+  ventas                Venta[]
+  compras               Compra[]
+  movimientosInventario MovimientoInventario[]
+  ajustesInventario     AjusteInventario[]
+
+  @@map("usuarios")
+}
+
+model Rol {
+  id            Int          @id @default(autoincrement())
+  codigo        String       @unique
+  descripcion   String
+  estado        Boolean      @default(true)
+  creadoEn      DateTime     @default(now()) @map("creado_en")
+  actualizadoEn DateTime     @updatedAt      @map("actualizado_en")
+
+  lista_usuarios RolUsuario[]
+  lista_menus    MenuRol[]
+
+  @@map("roles")
+}
+
+model RolUsuario {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @map("usuario_id")
+  rolId     Int      @map("rol_id")
+  estado    Boolean  @default(true)
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  rol       Rol      @relation(fields: [rolId],     references: [id])
+
+  @@unique([usuarioId, rolId])
+  @@map("rol_usuarios")
+}
+
+model Menu {
+  id            Int           @id @default(autoincrement())
+  codigo        String        @unique
+  descripcion   String
+  url           String?
+  icono         String?
+  orden         Int           @default(0)
+  menuPadreId   Int?          @map("menu_padre_id")
+  estado        Boolean       @default(true)
+  creadoEn      DateTime      @default(now()) @map("creado_en")
+  actualizadoEn DateTime      @updatedAt      @map("actualizado_en")
+
+  menuPadre      Menu?         @relation("MenuHijos", fields: [menuPadreId], references: [id])
+  hijos          Menu[]        @relation("MenuHijos")
+  lista_roles    MenuRol[]
+  lista_usuarios MenuUsuario[]
+
+  @@map("menus")
+}
+
+model MenuRol {
+  id       Int      @id @default(autoincrement())
+  menuId   Int      @map("menu_id")
+  rolId    Int      @map("rol_id")
+  estado   Boolean  @default(true)
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  menu     Menu     @relation(fields: [menuId], references: [id])
+  rol      Rol      @relation(fields: [rolId],  references: [id])
+
+  @@unique([menuId, rolId])
+  @@map("menu_roles")
+}
+
+model MenuUsuario {
+  id        Int      @id @default(autoincrement())
+  menuId    Int      @map("menu_id")
+  usuarioId Int      @map("usuario_id")
+  estado    Boolean  @default(true)
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  menu      Menu     @relation(fields: [menuId],    references: [id])
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@unique([menuId, usuarioId])
+  @@map("menu_usuarios")
+}
+
+// ══════════════════════════════════════════
+//  MAESTRAS  (id, codigo, descripcion, estado, lista)
+// ══════════════════════════════════════════
+
+model Marca {
+  id            Int        @id @default(autoincrement())
+  nombre        String     @unique
+  estado        Boolean    @default(true)
+  creadoEn      DateTime   @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
+
+  lista         Producto[]
+
+  @@map("marcas")
+}
+
+model TipoPago {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @unique
+  estado        Boolean   @default(true)
+  creadoEn      DateTime  @default(now()) @map("creado_en")
+  actualizadoEn DateTime  @updatedAt      @map("actualizado_en")
+
+  ventas        Venta[]
+  compras       Compra[]
+
+  @@map("tipos_pago")
+}
+
+model Almacen {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @unique
+  descripcion   String?
+  direccion     String?
+  estado        Boolean   @default(true)
+  creadoEn      DateTime  @default(now()) @map("creado_en")
+  actualizadoEn DateTime  @updatedAt      @map("actualizado_en")
+
+  @@map("almacenes")
+}
+
+model Caja {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @unique
+  descripcion   String?
+  estado        Boolean   @default(true)
+  creadoEn      DateTime  @default(now()) @map("creado_en")
+  actualizadoEn DateTime  @updatedAt      @map("actualizado_en")
+
+  @@map("cajas")
+}
+
+model Categoria {
+  id            Int        @id @default(autoincrement())
+  codigo        String     @unique
+  descripcion   String?
+  estado        Boolean    @default(true)
+  creadoEn      DateTime   @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
+
+  lista         Producto[]
+
+  @@map("categorias")
+}
+
+model UnidadMedida {
+  id            Int        @id @default(autoincrement())
+  codigo        String     @unique  // UND, KG, MT, LT, GL, ML, CJA, PAQ
+  descripcion   String
+  estado        Boolean    @default(true)
+  creadoEn      DateTime   @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
+
+  lista         Producto[]
+
+  @@map("unidades_medida")
+}
+
+// ══════════════════════════════════════════
+//  NEGOCIO
+// ══════════════════════════════════════════
+
+model Proveedor {
+  id            Int        @id @default(autoincrement())
+  codigo        String     @unique
+  descripcion   String
+  ruc           String?    @unique
+  contacto      String?
+  email         String?
+  telefono      String?
+  direccion     String?
+  estado        Boolean    @default(true)
+  creadoEn      DateTime   @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
+
+  lista_productos Producto[]
+  lista_compras   Compra[]
+
+  @@map("proveedores")
+}
+
+model Cliente {
+  id              Int           @id @default(autoincrement())
+  codigo          String        @unique
+  descripcion     String
+  tipo            TipoCliente   @default(natural)
+  tipoDocumento   TipoDocumento @default(DNI)   @map("tipo_documento")
+  numeroDocumento String        @unique         @map("numero_documento")
+  email           String?
+  telefono        String?
+  direccion       String?
+  estado          Boolean       @default(true)
+  creadoEn        DateTime      @default(now()) @map("creado_en")
+  actualizadoEn   DateTime      @updatedAt      @map("actualizado_en")
+
+  lista           Venta[]
+
+  @@map("clientes")
+}
+
+model Producto {
+  id             Int          @id @default(autoincrement())
+  codigo         String       @unique
+  codigoBarras   String?      @unique @map("codigo_barras")
+  descripcion    String
+  detalle        String?
+  precioCompra   Decimal      @db.Decimal(10, 2) @map("precio_compra")
+  precioVenta    Decimal      @db.Decimal(10, 2) @map("precio_venta")
+  stock          Int          @default(0)
+  stockMinimo    Int          @default(0)         @map("stock_minimo")
+  ubicacion      String?
+  categoriaId    Int          @map("categoria_id")
+  marcaId        Int?         @map("marca_id")
+  unidadMedidaId Int?         @map("unidad_medida_id")
+  proveedorId    Int?         @map("proveedor_id")
+  estado         Boolean      @default(true)
+  creadoEn       DateTime     @default(now())    @map("creado_en")
+  actualizadoEn  DateTime     @updatedAt         @map("actualizado_en")
+
+  categoria             Categoria              @relation(fields: [categoriaId],    references: [id])
+  marca                 Marca?                 @relation(fields: [marcaId],        references: [id])
+  unidadMedida          UnidadMedida?          @relation(fields: [unidadMedidaId], references: [id])
+  proveedor             Proveedor?             @relation(fields: [proveedorId],    references: [id])
+  lista_ventas          VentaItem[]
+  lista_compras         CompraItem[]
+  lista_movimientos     MovimientoInventario[]
+  lista_ajustes         AjusteInventarioItem[]
+
+  @@map("productos")
+}
+
+// ══════════════════════════════════════════
+//  TRANSACCIONAL — VENTAS
+// ══════════════════════════════════════════
+
+model Venta {
+  id            Int         @id @default(autoincrement())
+  numero        String      @unique
+  clienteId     Int         @map("cliente_id")
+  usuarioId     Int         @map("usuario_id")
+  subtotal      Decimal     @db.Decimal(10, 2)
+  igv           Decimal     @db.Decimal(10, 2)
+  total         Decimal     @db.Decimal(10, 2)
+  tipoPagoId    Int?        @map("tipo_pago_id")
+  estado        EstadoVenta @default(pendiente)
+  observaciones String?
+  creadoEn      DateTime    @default(now()) @map("creado_en")
+  actualizadoEn DateTime    @updatedAt      @map("actualizado_en")
+
+  cliente       Cliente     @relation(fields: [clienteId],   references: [id])
+  usuario       Usuario     @relation(fields: [usuarioId],   references: [id])
+  tipoPago      TipoPago?   @relation(fields: [tipoPagoId],  references: [id])
+  lista         VentaItem[]
+
+  @@map("ventas")
+}
+
+model VentaItem {
+  id             Int      @id @default(autoincrement())
+  ventaId        Int      @map("venta_id")
+  productoId     Int      @map("producto_id")
+  cantidad       Int
+  precioUnitario Decimal  @db.Decimal(10, 2) @map("precio_unitario")
+  subtotal       Decimal  @db.Decimal(10, 2)
+  estado         Boolean  @default(true)
+
+  venta          Venta    @relation(fields: [ventaId],    references: [id])
+  producto       Producto @relation(fields: [productoId], references: [id])
+
+  @@map("venta_items")
+}
+
+// ══════════════════════════════════════════
+//  TRANSACCIONAL — COMPRAS
+// ══════════════════════════════════════════
+
+model Compra {
+  id            Int          @id @default(autoincrement())
+  numero        String       @unique
+  proveedorId   Int          @map("proveedor_id")
+  usuarioId     Int          @map("usuario_id")
+  subtotal      Decimal      @db.Decimal(10, 2)
+  igv           Decimal      @db.Decimal(10, 2)
+  total         Decimal      @db.Decimal(10, 2)
+  tipoPagoId    Int?         @map("tipo_pago_id")
+  estado        EstadoCompra @default(pendiente)
+  numeroFactura String?      @map("numero_factura")
+  observaciones String?
+  creadoEn      DateTime     @default(now()) @map("creado_en")
+  actualizadoEn DateTime     @updatedAt      @map("actualizado_en")
+
+  proveedor     Proveedor    @relation(fields: [proveedorId], references: [id])
+  usuario       Usuario      @relation(fields: [usuarioId],   references: [id])
+  tipoPago      TipoPago?    @relation(fields: [tipoPagoId],  references: [id])
+  lista         CompraItem[]
+
+  @@map("compras")
+}
+
+model CompraItem {
+  id            Int      @id @default(autoincrement())
+  compraId      Int      @map("compra_id")
+  productoId    Int      @map("producto_id")
+  cantidad      Int
+  costoUnitario Decimal  @db.Decimal(10, 2) @map("costo_unitario")
+  subtotal      Decimal  @db.Decimal(10, 2)
+  estado        Boolean  @default(true)
+
+  compra        Compra   @relation(fields: [compraId],    references: [id])
+  producto      Producto @relation(fields: [productoId],  references: [id])
+
+  @@map("compra_items")
+}
+
+// ══════════════════════════════════════════
+//  TRANSACCIONAL — INVENTARIO (KARDEX)
+// ══════════════════════════════════════════
+
+model MovimientoInventario {
+  id             Int            @id @default(autoincrement())
+  productoId     Int            @map("producto_id")
+  tipo           TipoMovimiento
+  cantidad       Int
+  stockAnterior  Int            @map("stock_anterior")
+  stockNuevo     Int            @map("stock_nuevo")
+  referenciaId   Int?           @map("referencia_id")
+  referenciaTipo String?        @map("referencia_tipo")
+  observacion    String?
+  usuarioId      Int            @map("usuario_id")
+  estado         Boolean        @default(true)
+  creadoEn       DateTime       @default(now()) @map("creado_en")
+
+  producto       Producto       @relation(fields: [productoId], references: [id])
+  usuario        Usuario        @relation(fields: [usuarioId],  references: [id])
+
+  @@map("movimientos_inventario")
+}
+
+model AjusteInventario {
+  id            Int                    @id @default(autoincrement())
+  numero        String                 @unique
+  motivo        String
+  usuarioId     Int                    @map("usuario_id")
+  estado        EstadoAjuste           @default(borrador)
+  observaciones String?
+  creadoEn      DateTime               @default(now()) @map("creado_en")
+  actualizadoEn DateTime               @updatedAt      @map("actualizado_en")
+
+  usuario       Usuario                @relation(fields: [usuarioId], references: [id])
+  lista         AjusteInventarioItem[]
+
+  @@map("ajustes_inventario")
+}
+
+model AjusteInventarioItem {
+  id           Int              @id @default(autoincrement())
+  ajusteId     Int              @map("ajuste_id")
+  productoId   Int              @map("producto_id")
+  stockSistema Int              @map("stock_sistema")
+  stockFisico  Int              @map("stock_fisico")
+  diferencia   Int
+  estado       Boolean          @default(true)
+
+  ajuste       AjusteInventario @relation(fields: [ajusteId],   references: [id])
+  producto     Producto         @relation(fields: [productoId], references: [id])
+
+  @@map("ajuste_inventario_items")
+}
+
+// ══════════════════════════════════════════
+//  ENUMS
+// ══════════════════════════════════════════
+
+enum TipoCliente {
+  natural
+  juridica
+}
+
+enum TipoDocumento {
+  DNI
+  RUC
+  CE
+  Carnet_Extranjeria
+}
+
+enum EstadoVenta {
+  pendiente
+  completada
+  anulada
+}
+
+enum EstadoCompra {
+  pendiente
+  recibida
+  anulada
+}
+
+enum TipoMovimiento {
+  entrada_compra
+  salida_venta
+  entrada_ajuste
+  salida_ajuste
+  entrada_manual
+  salida_manual
+}
+
+enum EstadoAjuste {
+  borrador
+  aplicado
+  anulado
+}
