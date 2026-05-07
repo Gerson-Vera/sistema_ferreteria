@@ -14,6 +14,7 @@ export type Compra = {
   numero: string;
   proveedorId: string;
   usuarioId: string;
+  tipoPagoId: string | null;
   items: CompraItem[];
   subtotal: number;
   igv: number;
@@ -33,6 +34,7 @@ export type CreateCompraItemDto = {
 
 export type CreateCompraDto = {
   proveedorId: string;
+  tipoPagoId?: string;
   items: CreateCompraItemDto[];
   numeroFactura?: string;
   observaciones?: string;

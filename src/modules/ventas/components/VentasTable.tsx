@@ -19,6 +19,7 @@ import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import BlockIcon from '@mui/icons-material/Block';
+import PersonIcon from '@mui/icons-material/Person';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import type { EstadoVenta, Venta } from '../types';
 
@@ -83,6 +84,7 @@ export default function VentasTable({
             <TableRow>
               <TableCell>Número</TableCell>
               <TableCell>Cliente</TableCell>
+              <TableCell>Vendedor</TableCell>
               <TableCell align="center">Items</TableCell>
               <TableCell align="right">Subtotal</TableCell>
               <TableCell align="right">IGV</TableCell>
@@ -96,14 +98,14 @@ export default function VentasTable({
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 9 }).map((_, j) => (
+                  {Array.from({ length: 10 }).map((_, j) => (
                     <TableCell key={j}><Skeleton /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : ventas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary" variant="body2">
                     No hay ventas registradas
                   </Typography>
@@ -117,11 +119,27 @@ export default function VentasTable({
                       {v.numero}
                     </Typography>
                   </TableCell>
+
+                  {/* Cliente */}
                   <TableCell>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                      {v.clienteId.slice(0, 8)}…
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {v.clienteNombre}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      ID {v.clienteId}
                     </Typography>
                   </TableCell>
+
+                  {/* Vendedor */}
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                      <PersonIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {v.usuarioNombre}
+                      </Typography>
+                    </Stack>
+                  </TableCell>
+
                   <TableCell align="center">
                     <Chip label={v.items?.length ?? 0} size="small" variant="outlined" />
                   </TableCell>
@@ -144,6 +162,9 @@ export default function VentasTable({
                   <TableCell>
                     <Typography variant="body2" color="text.secondary">
                       {new Date(v.creadoEn).toLocaleDateString('es-PE')}
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled">
+                      {new Date(v.creadoEn).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">

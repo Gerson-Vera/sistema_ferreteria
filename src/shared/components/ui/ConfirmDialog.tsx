@@ -15,6 +15,7 @@ type Props = {
   onClose: () => void;
   loading?: boolean;
   confirmLabel?: string;
+  confirmColor?: 'error' | 'success' | 'primary' | 'warning';
 };
 
 export default function ConfirmDialog({
@@ -25,6 +26,7 @@ export default function ConfirmDialog({
   onClose,
   loading,
   confirmLabel = 'Eliminar',
+  confirmColor = 'error',
 }: Props) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -39,7 +41,7 @@ export default function ConfirmDialog({
         <Button onClick={onClose} disabled={loading}>
           Cancelar
         </Button>
-        <Button variant="contained" color="error" onClick={onConfirm} disabled={loading}>
+        <Button variant="contained" color={confirmColor} onClick={onConfirm} disabled={loading}>
           {confirmLabel}
         </Button>
       </DialogActions>

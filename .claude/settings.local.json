@@ -12,7 +12,13 @@
       "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/tipos-pago/[id])",
       "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/almacenes/[id])",
       "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/cajas/[id])",
-      "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/unidades-medida/[id])"
+      "Bash(mkdir -p /c/Users/gvera/Desktop/sistema_ferreteria/sistema_ferreteria/app/api/unidades-medida/[id])",
+      "Bash(grep -v \"^$\")",
+      "Bash(powershell *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Recurse -Depth 3)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Recurse | Where-Object {$_.PSIsContainer} | Select-Object -ExpandProperty FullName | Where-Object {$_ -match \"\\(app|src\\)\"} | Sort-Object)",
+      "Bash(node -e \"require\\('recharts'\\); console.log\\('recharts ok'\\)\")"
     ]
   }
 }

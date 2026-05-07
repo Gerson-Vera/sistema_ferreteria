@@ -13,7 +13,10 @@ export type Venta = {
   id: string;
   numero: string;
   clienteId: string;
+  clienteNombre: string;
   usuarioId: string;
+  usuarioNombre: string;
+  tipoPagoId: string | null;
   items: VentaItem[];
   subtotal: number;
   igv: number;
@@ -32,6 +35,7 @@ export type CreateVentaItemDto = {
 
 export type CreateVentaDto = {
   clienteId: string;
+  tipoPagoId?: string;
   items: CreateVentaItemDto[];
   observaciones?: string;
 };

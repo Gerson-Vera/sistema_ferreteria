@@ -5,8 +5,10 @@ import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
 import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import StockAlertBanner from '@/shared/components/ui/StockAlertBanner';
 import { useToast } from '@/shared/context/ToastContext';
 import { useCategorias } from '@/modules/categorias/hooks/useCategorias';
+import { useAlmacenes } from '@/modules/almacenes/hooks/useAlmacenes';
 import ProductoFormDialog from '@/modules/productos/components/ProductoFormDialog';
 import ProductosTable from '@/modules/productos/components/ProductosTable';
 import { useProductos } from '@/modules/productos/hooks/useProductos';
@@ -15,9 +17,11 @@ import type { Producto } from '@/modules/productos/types';
 
 export default function ProductosPage() {
   const { categorias } = useCategorias();
+  const { almacenes } = useAlmacenes();
   const {
     productos, total, page, setPage, limit, setLimit,
     search, setSearch, categoriaId, setCategoriaId,
+    almacenId, setAlmacenId,
     status, setStatus,
     loading, error, create, update, remove,
   } = useProductos();
@@ -76,19 +80,24 @@ export default function ProductosPage() {
         }
       />
 
+      <StockAlertBanner />
+
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <ProductosTable
         productos={productos}
         categorias={categorias}
+        almacenes={almacenes}
         loading={loading}
         total={total}
         page={page}
         limit={limit}
         search={search}
         categoriaId={categoriaId}
+        almacenId={almacenId}
         onSearchChange={setSearch}
         onCategoriaChange={setCategoriaId}
+        onAlmacenChange={setAlmacenId}
         onPageChange={setPage}
         onLimitChange={setLimit}
         status={status}
@@ -109,7 +118,7 @@ export default function ProductosPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         title="Eliminar producto"
-        message={`¿Seguro que deseas eliminar "${deleteTarget?.nombre}" (${deleteTarget?.sku})? Esta acción no se puede deshacer.`}
+        message={`¿Seguro que deseas eliminar "${deleteTarget?.nombre}"? Esta acción no se puede deshacer.`}
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
         loading={deleting}

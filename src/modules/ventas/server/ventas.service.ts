@@ -22,9 +22,9 @@ export const ventasService = {
     return venta;
   },
 
-  async create(data: CreateVentaDto) {
+  async create(data: CreateVentaDto, usuarioId: number) {
     const numero = generarNumeroVenta();
-    return ventasRepository.create(data, numero);
+    return ventasRepository.create(data, numero, usuarioId);
   },
 
   async anular(id: string) {

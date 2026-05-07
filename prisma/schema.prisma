@@ -137,13 +137,15 @@ model TipoPago {
 }
 
 model Almacen {
-  id            Int       @id @default(autoincrement())
-  nombre        String    @unique
+  id            Int        @id @default(autoincrement())
+  nombre        String     @unique
   descripcion   String?
   direccion     String?
-  estado        Boolean   @default(true)
-  creadoEn      DateTime  @default(now()) @map("creado_en")
-  actualizadoEn DateTime  @updatedAt      @map("actualizado_en")
+  estado        Boolean    @default(true)
+  creadoEn      DateTime   @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
+
+  lista_productos Producto[]
 
   @@map("almacenes")
 }
@@ -233,6 +235,7 @@ model Producto {
   codigoBarras   String?      @unique @map("codigo_barras")
   descripcion    String
   detalle        String?
+  img            String?
   precioCompra   Decimal      @db.Decimal(10, 2) @map("precio_compra")
   precioVenta    Decimal      @db.Decimal(10, 2) @map("precio_venta")
   stock          Int          @default(0)
@@ -242,6 +245,7 @@ model Producto {
   marcaId        Int?         @map("marca_id")
   unidadMedidaId Int?         @map("unidad_medida_id")
   proveedorId    Int?         @map("proveedor_id")
+  almacenId      Int?         @map("almacen_id")
   estado         Boolean      @default(true)
   creadoEn       DateTime     @default(now())    @map("creado_en")
   actualizadoEn  DateTime     @updatedAt         @map("actualizado_en")
@@ -250,6 +254,7 @@ model Producto {
   marca                 Marca?                 @relation(fields: [marcaId],        references: [id])
   unidadMedida          UnidadMedida?          @relation(fields: [unidadMedidaId], references: [id])
   proveedor             Proveedor?             @relation(fields: [proveedorId],    references: [id])
+  almacen               Almacen?               @relation(fields: [almacenId],      references: [id])
   lista_ventas          VentaItem[]
   lista_compras         CompraItem[]
   lista_movimientos     MovimientoInventario[]

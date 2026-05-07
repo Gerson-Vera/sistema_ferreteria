@@ -4,12 +4,18 @@ import type { CreateProductoDto, UpdateProductoDto } from '../types';
 import type { QueryParams } from '@/shared/types';
 
 export const productosService = {
-  async getAll(params: QueryParams & { categoriaId?: string; activo?: boolean }) {
+  async getAll(params: QueryParams & { categoriaId?: string; almacenId?: string; activo?: boolean }) {
     return productosRepository.findMany(params);
   },
 
   async getById(id: string) {
     const producto = await productosRepository.findById(id);
+    if (!producto) throw AppError.notFound('Producto');
+    return producto;
+  },
+
+  async getByCodigoBarras(codigoBarras: string) {
+    const producto = await productosRepository.findByCodigoBarras(codigoBarras);
     if (!producto) throw AppError.notFound('Producto');
     return producto;
   },

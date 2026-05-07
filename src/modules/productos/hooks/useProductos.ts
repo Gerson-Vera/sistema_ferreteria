@@ -6,7 +6,7 @@ import type { PaginatedResponse } from '@/shared/types';
 
 export type StatusFilter = 'all' | 'activo' | 'inactivo';
 
-const EMPTY: PaginatedResponse<Producto> = { data: [], total: 0, page: 1, limit: 5, totalPages: 0 };
+const EMPTY: PaginatedResponse<Producto> = { data: [], total: 0, page: 1, limit: 10, totalPages: 0 };
 
 const toActivo = (s: StatusFilter): boolean | undefined =>
   s === 'all' ? undefined : s === 'activo';
@@ -14,9 +14,10 @@ const toActivo = (s: StatusFilter): boolean | undefined =>
 export function useProductos() {
   const [result, setResult] = useState<PaginatedResponse<Producto>>(EMPTY);
   const [page, setPage] = useState(1);
-  const [limit, setLimitState] = useState(5);
+  const [limit, setLimitState] = useState(10);
   const [search, setSearchState] = useState('');
   const [categoriaId, setCategoriaIdState] = useState('');
+  const [almacenId, setAlmacenIdState] = useState('');
   const [status, setStatusState] = useState<StatusFilter>('activo');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export function useProductos() {
         limit,
         search: search || undefined,
         categoriaId: categoriaId || undefined,
+        almacenId: almacenId || undefined,
         activo: toActivo(status),
       });
       setResult(data);
@@ -38,7 +40,7 @@ export function useProductos() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, categoriaId, status]);
+  }, [page, limit, search, categoriaId, almacenId, status]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -49,6 +51,11 @@ export function useProductos() {
 
   const setCategoriaId = useCallback((id: string) => {
     setCategoriaIdState(id);
+    setPage(1);
+  }, []);
+
+  const setAlmacenId = useCallback((id: string) => {
+    setAlmacenIdState(id);
     setPage(1);
   }, []);
 
@@ -93,6 +100,8 @@ export function useProductos() {
     setSearch,
     categoriaId,
     setCategoriaId,
+    almacenId,
+    setAlmacenId,
     loading,
     error,
     refresh: load,

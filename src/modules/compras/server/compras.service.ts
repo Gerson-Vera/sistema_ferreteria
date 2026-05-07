@@ -22,9 +22,9 @@ export const comprasService = {
     return compra;
   },
 
-  async create(data: CreateCompraDto) {
+  async create(data: CreateCompraDto, usuarioId: number) {
     const numero = generarNumeroCompra();
-    return comprasRepository.create(data, numero);
+    return comprasRepository.create(data, numero, usuarioId);
   },
 
   async recibir(id: string) {

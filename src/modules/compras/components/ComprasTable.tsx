@@ -20,7 +20,7 @@ import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import BlockIcon from '@mui/icons-material/Block';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import type { Compra, EstadoCompra } from '../types';
 
 const estadoColor: Record<EstadoCompra, 'warning' | 'success' | 'error'> = {
@@ -157,7 +157,7 @@ export default function ComprasTable({
                     {c.estado === 'pendiente' && (
                       <Tooltip title="Marcar recibida">
                         <IconButton size="small" color="success" onClick={() => onRecibir(c)}>
-                          <CheckCircleOutlineIcon fontSize="small" />
+                          <CheckCircleIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     )}
