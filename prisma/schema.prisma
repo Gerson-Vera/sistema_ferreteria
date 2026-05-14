@@ -118,7 +118,8 @@ model Marca {
   creadoEn      DateTime   @default(now()) @map("creado_en")
   actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
 
-  lista         Producto[]
+  lista           Producto[]
+  categoriaLink   CategoriaMarca[]
 
   @@map("marcas")
 }
@@ -145,7 +146,8 @@ model Almacen {
   creadoEn      DateTime   @default(now()) @map("creado_en")
   actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
 
-  lista_productos Producto[]
+  lista_productos  Producto[]
+  categoriaConfigs CategoriaConfig[]
 
   @@map("almacenes")
 }
@@ -169,7 +171,10 @@ model Categoria {
   creadoEn      DateTime   @default(now()) @map("creado_en")
   actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
 
-  lista         Producto[]
+  lista              Producto[]
+  config             CategoriaConfig?
+  categoriaMarcas    CategoriaMarca[]
+  categoriaProveedores CategoriaProveedor[]
 
   @@map("categorias")
 }
@@ -182,7 +187,8 @@ model UnidadMedida {
   creadoEn      DateTime   @default(now()) @map("creado_en")
   actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
 
-  lista         Producto[]
+  lista            Producto[]
+  categoriaConfigs CategoriaConfig[]
 
   @@map("unidades_medida")
 }
@@ -204,8 +210,9 @@ model Proveedor {
   creadoEn      DateTime   @default(now()) @map("creado_en")
   actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
 
-  lista_productos Producto[]
-  lista_compras   Compra[]
+  lista_productos  Producto[]
+  lista_compras    Compra[]
+  categoriaLink    CategoriaProveedor[]
 
   @@map("proveedores")
 }
@@ -399,6 +406,50 @@ model AjusteInventarioItem {
   producto     Producto         @relation(fields: [productoId], references: [id])
 
   @@map("ajuste_inventario_items")
+}
+
+// ══════════════════════════════════════════
+//  REGLAS DE NEGOCIO — TABLAS PUENTE
+// ══════════════════════════════════════════
+
+// Defaults por categoría: unidad de medida y almacén predeterminados
+model CategoriaConfig {
+  id             Int           @id @default(autoincrement())
+  categoriaId    Int           @unique @map("categoria_id")
+  unidadMedidaId Int?          @map("unidad_medida_id")
+  almacenId      Int?          @map("almacen_id")
+  creadoEn       DateTime      @default(now()) @map("creado_en")
+  actualizadoEn  DateTime      @updatedAt      @map("actualizado_en")
+
+  categoria    Categoria     @relation(fields: [categoriaId],    references: [id])
+  unidadMedida UnidadMedida? @relation(fields: [unidadMedidaId], references: [id])
+  almacen      Almacen?      @relation(fields: [almacenId],      references: [id])
+
+  @@map("categoria_configs")
+}
+
+// Marcas habituales de una categoría (N:M)
+model CategoriaMarca {
+  categoriaId Int @map("categoria_id")
+  marcaId     Int @map("marca_id")
+
+  categoria Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  marca     Marca     @relation(fields: [marcaId],     references: [id], onDelete: Cascade)
+
+  @@id([categoriaId, marcaId])
+  @@map("categoria_marcas")
+}
+
+// Proveedores habituales de una categoría (N:M)
+model CategoriaProveedor {
+  categoriaId Int @map("categoria_id")
+  proveedorId Int @map("proveedor_id")
+
+  categoria Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+
+  @@id([categoriaId, proveedorId])
+  @@map("categoria_proveedores")
 }
 
 // ══════════════════════════════════════════

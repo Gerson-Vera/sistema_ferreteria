@@ -25,6 +25,7 @@ import type { Marca } from '@/modules/marcas/types';
 import type { UnidadMedida } from '@/modules/unidades-medida/types';
 import type { Proveedor } from '@/modules/proveedores/types';
 import type { Almacen } from '@/modules/almacenes/types';
+import { categoriasClientService } from '@/modules/categorias/services/categorias.client';
 import { marcasClientService } from '@/modules/marcas/services/marcas.client';
 import { unidadesMedidaClientService } from '@/modules/unidades-medida/services/unidades-medida.client';
 import { proveedoresClientService } from '@/modules/proveedores/services/proveedores.client';
@@ -84,6 +85,10 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
+  const [suggestedMarcaIds, setSuggestedMarcaIds] = useState<Set<string>>(new Set());
+  const [suggestedProveedorIds, setSuggestedProveedorIds] = useState<Set<string>>(new Set());
+  const [suggestedUnidadId, setSuggestedUnidadId] = useState<string | null>(null);
+  const [suggestedAlmacenId, setSuggestedAlmacenId] = useState<string | null>(null);
   const [imgUploading, setImgUploading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -127,6 +132,53 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
     setErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
+  const handleCategoriaChange = async (newCategoriaId: string) => {
+    setSuggestedMarcaIds(new Set());
+    setSuggestedProveedorIds(new Set());
+    setSuggestedUnidadId(null);
+    setSuggestedAlmacenId(null);
+
+    if (!newCategoriaId) {
+      setForm(prev => ({
+        ...prev,
+        categoriaId: '',
+        marcaId: '',
+        unidadMedidaId: '',
+        almacenId: '',
+        proveedorId: '',
+        ubicacion: '',
+      }));
+      setErrors(prev => ({ ...prev, categoriaId: undefined }));
+      return;
+    }
+
+    setForm(prev => ({ ...prev, categoriaId: newCategoriaId }));
+    setErrors(prev => ({ ...prev, categoriaId: undefined }));
+    if (initialData) return;
+
+    try {
+      const cfg = await categoriasClientService.getConfig(newCategoriaId);
+      const autoAlmacen = cfg.almacenId
+        ? almacenes.find(a => a.id === cfg.almacenId)
+        : null;
+
+      setForm(prev => ({
+        ...prev,
+        unidadMedidaId: cfg.unidadMedidaId ?? '',
+        almacenId: cfg.almacenId ?? '',
+        marcaId: cfg.marcaIds[0] ?? '',
+        proveedorId: cfg.proveedorIds[0] ?? '',
+        ubicacion: autoAlmacen ? autoAlmacen.nombre : prev.ubicacion,
+      }));
+      setSuggestedMarcaIds(new Set(cfg.marcaIds));
+      setSuggestedProveedorIds(new Set(cfg.proveedorIds));
+      setSuggestedUnidadId(cfg.unidadMedidaId);
+      setSuggestedAlmacenId(cfg.almacenId);
+    } catch {
+      // no config set — keep form as is
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -142,6 +194,25 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
       if (fileRef.current) fileRef.current.value = '';
     }
   };
+
+  const catSelected = !!form.categoriaId;
+  const catFiltered = suggestedMarcaIds.size > 0 || suggestedUnidadId !== null;
+
+  const displayMarcas = suggestedMarcaIds.size > 0
+    ? marcas.filter(m => m.activo && suggestedMarcaIds.has(m.id))
+    : marcas.filter(m => m.activo);
+
+  const displayProveedores = suggestedProveedorIds.size > 0
+    ? proveedores.filter(p => p.activo && suggestedProveedorIds.has(p.id))
+    : proveedores.filter(p => p.activo);
+
+  const displayUnidades = suggestedUnidadId
+    ? unidades.filter(u => u.activo && u.id === suggestedUnidadId)
+    : unidades.filter(u => u.activo);
+
+  const displayAlmacenes = suggestedAlmacenId
+    ? almacenes.filter(a => a.id === suggestedAlmacenId)
+    : almacenes;
 
   const pc = parseFloat(form.precioCompra);
   const pv = parseFloat(form.precioVenta);
@@ -228,13 +299,10 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
               <Select
                 value={form.categoriaId}
                 label="Categoría"
-                onChange={e => {
-                  setForm(prev => ({ ...prev, categoriaId: e.target.value }));
-                  setErrors(prev => ({ ...prev, categoriaId: undefined }));
-                }}
+                onChange={e => handleCategoriaChange(e.target.value)}
               >
                 {categorias.filter(c => c.activo).map(c => (
-                  <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>
+                  <MenuItem key={c.id} value={c.id}>{c.descripcion}</MenuItem>
                 ))}
               </Select>
               {errors.categoriaId && <FormHelperText>{errors.categoriaId}</FormHelperText>}
@@ -270,65 +338,85 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
               />
             </Tooltip>
           </Grid>
+          {catFiltered && (
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="caption" sx={{ color: '#1565C0', fontWeight: 500 }}>
+                ● Marca, unidad, almacén y proveedor filtrados según la categoría seleccionada
+              </Typography>
+            </Grid>
+          )}
+
           <Grid size={{ xs: 12, sm: 4 }}>
-            <FormControl fullWidth disabled={disabled}>
+            <FormControl fullWidth disabled={disabled || !catSelected}>
               <InputLabel>Marca</InputLabel>
               <Select
                 value={form.marcaId}
                 label="Marca"
                 onChange={e => setForm(prev => ({ ...prev, marcaId: e.target.value }))}
               >
-                <MenuItem value="">Sin marca</MenuItem>
-                {marcas.filter(m => m.activo).map(m => (
+                {!suggestedMarcaIds.size && <MenuItem value="">Sin marca</MenuItem>}
+                {displayMarcas.map(m => (
                   <MenuItem key={m.id} value={m.id}>{m.nombre}</MenuItem>
                 ))}
               </Select>
+              {catFiltered && (
+                <FormHelperText>Solo marcas de esta categoría</FormHelperText>
+              )}
             </FormControl>
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
-            <FormControl fullWidth disabled={disabled}>
+            <FormControl fullWidth disabled={disabled || !catSelected}>
               <InputLabel>Unidad de medida</InputLabel>
               <Select
                 value={form.unidadMedidaId}
                 label="Unidad de medida"
                 onChange={e => setForm(prev => ({ ...prev, unidadMedidaId: e.target.value }))}
               >
-                <MenuItem value="">Sin unidad</MenuItem>
-                {unidades.filter(u => u.activo).map(u => (
+                {!suggestedUnidadId && <MenuItem value="">Sin unidad</MenuItem>}
+                {displayUnidades.map(u => (
                   <MenuItem key={u.id} value={u.id}>{u.codigo} — {u.nombre}</MenuItem>
                 ))}
               </Select>
+              {catFiltered && (
+                <FormHelperText>Unidad configurada para esta categoría</FormHelperText>
+              )}
             </FormControl>
           </Grid>
 
           <Grid size={{ xs: 12, sm: 4 }}>
-            <FormControl fullWidth disabled={disabled}>
+            <FormControl fullWidth disabled={disabled || !catSelected}>
               <InputLabel>Proveedor</InputLabel>
               <Select
                 value={form.proveedorId}
                 label="Proveedor"
                 onChange={e => setForm(prev => ({ ...prev, proveedorId: e.target.value }))}
               >
-                <MenuItem value="">Sin proveedor</MenuItem>
-                {proveedores.filter(p => p.activo).map(p => (
+                {!suggestedProveedorIds.size && <MenuItem value="">Sin proveedor</MenuItem>}
+                {displayProveedores.map(p => (
                   <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
                 ))}
               </Select>
+              {catFiltered && (
+                <FormHelperText>Solo proveedores de esta categoría</FormHelperText>
+              )}
             </FormControl>
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
-            <FormControl fullWidth disabled={disabled}>
+            <FormControl fullWidth disabled={disabled || !catSelected}>
               <InputLabel>Almacén</InputLabel>
               <Select
                 value={form.almacenId}
                 label="Almacén"
                 onChange={e => setForm(prev => ({ ...prev, almacenId: e.target.value }))}
               >
-                <MenuItem value="">Sin almacén</MenuItem>
-                {almacenes.map(a => (
+                {!suggestedAlmacenId && <MenuItem value="">Sin almacén</MenuItem>}
+                {displayAlmacenes.map(a => (
                   <MenuItem key={a.id} value={a.id}>{a.nombre}</MenuItem>
                 ))}
               </Select>
+              {catFiltered && (
+                <FormHelperText>Almacén configurado para esta categoría</FormHelperText>
+              )}
             </FormControl>
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
@@ -337,7 +425,7 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
               fullWidth
               value={form.ubicacion}
               onChange={set('ubicacion')}
-              disabled={disabled}
+              disabled={disabled || !catSelected}
               placeholder="Ej: Estante A-3"
             />
           </Grid>

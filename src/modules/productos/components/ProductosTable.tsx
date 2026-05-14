@@ -33,6 +33,16 @@ import type { Categoria } from '@/modules/categorias/types';
 import type { StatusFilter } from '../hooks/useProductos';
 import type { Producto } from '../types';
 
+// ─── Paleta consistente con ERP light ────────────────────────────────────────
+const C = {
+  headerBg:   '#F8FAFC',
+  headerText: '#64748B',
+  border:     '#E8EDF3',
+  rowHover:   '#FAFBFC',
+  textMain:   '#1E293B',
+  textMuted:  '#94A3B8',
+} as const;
+
 type Props = {
   productos: Producto[];
   categorias: Categoria[];
@@ -54,6 +64,28 @@ type Props = {
   onEdit: (producto: Producto) => void;
   onDelete: (producto: Producto) => void;
 };
+
+// ─── Celda de header ─────────────────────────────────────────────────────────
+function TH({ children, align }: { children?: React.ReactNode; align?: 'left' | 'right' | 'center' }) {
+  return (
+    <TableCell
+      align={align}
+      sx={{
+        bgcolor: C.headerBg,
+        color: C.headerText,
+        fontWeight: 700,
+        fontSize: 11,
+        textTransform: 'uppercase',
+        letterSpacing: '0.07em',
+        borderBottom: `1px solid ${C.border}`,
+        py: 1.5,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </TableCell>
+  );
+}
 
 export default function ProductosTable({
   productos,
@@ -84,213 +116,508 @@ export default function ProductosTable({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputValue]);
 
-  const catMap = useMemo(
-    () => new Map(categorias.map(c => [c.id, c.nombre])),
-    [categorias],
-  );
+  const catMap = useMemo(() => new Map(categorias.map(c => [c.id, c.nombre])), [categorias]);
+  const almMap = useMemo(() => new Map(almacenes.map(a => [a.id, a.nombre])), [almacenes]);
 
-  const almMap = useMemo(
-    () => new Map(almacenes.map(a => [a.id, a.nombre])),
-    [almacenes],
-  );
-
-  const fmt = (n: number) => `S/ ${n.toFixed(2)}`;
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n);
 
   return (
     <Box>
-      <Stack direction="row" spacing={1.5} sx={{ mb: 2, alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+
+      {/* ── Barra de filtros ─────────────────────────────────────────────── */}
+      <Paper
+        elevation={0}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          px: 2,
+          py: 1.5,
+          mb: 2,
+          border: `1px solid ${C.border}`,
+          borderRadius: '10px',
+          bgcolor: '#FFFFFF',
+        }}
+      >
+        {/* Buscador */}
         <TextField
-          placeholder="Buscar por nombre, SKU o código de barras..."
+          placeholder="Buscar por nombre, SKU o código…"
           size="small"
           value={inputValue}
           onChange={e => setInputValue(e.target.value)}
-          sx={{ width: 280 }}
+          sx={{
+            width: 290,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '8px',
+              fontSize: 13.5,
+              bgcolor: C.headerBg,
+              '& fieldset': { borderColor: C.border },
+              '&:hover fieldset': { borderColor: '#CBD5E1' },
+            },
+          }}
           slotProps={{
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
+                  <SearchIcon sx={{ fontSize: 17, color: C.textMuted }} />
                 </InputAdornment>
               ),
             },
           }}
         />
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Categoría</InputLabel>
+
+        {/* Categoría */}
+        <FormControl
+          size="small"
+          sx={{
+            minWidth: 150,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '8px',
+              fontSize: 13.5,
+              bgcolor: C.headerBg,
+              '& fieldset': { borderColor: C.border },
+            },
+          }}
+        >
+          <InputLabel sx={{ fontSize: 13.5 }}>Categoría</InputLabel>
           <Select
             value={categoriaId}
             label="Categoría"
             onChange={e => onCategoriaChange(e.target.value)}
           >
-            <MenuItem value="">Todas</MenuItem>
+            <MenuItem value="" sx={{ fontSize: 13.5 }}>Todas</MenuItem>
             {categorias.map(c => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.nombre}
-              </MenuItem>
+              <MenuItem key={c.id} value={c.id} sx={{ fontSize: 13.5 }}>{c.nombre}</MenuItem>
             ))}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Almacén</InputLabel>
+
+        {/* Almacén */}
+        <FormControl
+          size="small"
+          sx={{
+            minWidth: 150,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '8px',
+              fontSize: 13.5,
+              bgcolor: C.headerBg,
+              '& fieldset': { borderColor: C.border },
+            },
+          }}
+        >
+          <InputLabel sx={{ fontSize: 13.5 }}>Almacén</InputLabel>
           <Select
             value={almacenId}
             label="Almacén"
             onChange={e => onAlmacenChange(e.target.value)}
           >
-            <MenuItem value="">Todos</MenuItem>
+            <MenuItem value="" sx={{ fontSize: 13.5 }}>Todos</MenuItem>
             {almacenes.map(a => (
-              <MenuItem key={a.id} value={a.id}>
-                {a.nombre}
-              </MenuItem>
+              <MenuItem key={a.id} value={a.id} sx={{ fontSize: 13.5 }}>{a.nombre}</MenuItem>
             ))}
           </Select>
         </FormControl>
+
+        {/* Status toggle */}
         <ToggleButtonGroup
           value={status}
           exclusive
           size="small"
           onChange={(_, val) => { if (val) onStatusChange(val); }}
+          sx={{
+            ml: 'auto',
+            '& .MuiToggleButton-root': {
+              px: 1.75,
+              py: 0.6,
+              fontSize: 12.5,
+              fontWeight: 500,
+              color: C.headerText,
+              border: `1px solid ${C.border}`,
+              borderRadius: '8px !important',
+              mx: 0.25,
+              textTransform: 'none',
+              '&.Mui-selected': {
+                bgcolor: '#1565C0',
+                color: '#fff',
+                borderColor: '#1565C0',
+                '&:hover': { bgcolor: '#0D47A1' },
+              },
+              '&:hover': { bgcolor: C.headerBg },
+            },
+            '& .MuiToggleButtonGroup-grouped': {
+              borderRadius: '8px !important',
+              border: `1px solid ${C.border} !important`,
+            },
+          }}
         >
-          <ToggleButton value="all">Todo</ToggleButton>
-          <ToggleButton value="activo">Activo</ToggleButton>
-          <ToggleButton value="inactivo">Inactivo</ToggleButton>
+          <ToggleButton value="all">Todos</ToggleButton>
+          <ToggleButton value="activo">Activos</ToggleButton>
+          <ToggleButton value="inactivo">Inactivos</ToggleButton>
         </ToggleButtonGroup>
-      </Stack>
+      </Paper>
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ width: 56 }} />
-              <TableCell>SKU</TableCell>
-              <TableCell>Nombre</TableCell>
-              <TableCell>Categoría</TableCell>
-              <TableCell>Almacén</TableCell>
-              <TableCell align="right">P. Venta</TableCell>
-              <TableCell align="center">Stock</TableCell>
-              <TableCell align="center">Estado</TableCell>
-              <TableCell align="right">Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
+      {/* ── Tabla ────────────────────────────────────────────────────────── */}
+      <Paper
+        elevation={0}
+        sx={{
+          border: `1px solid ${C.border}`,
+          borderRadius: '10px',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Cabecera de la tabla con contador */}
+        <Box
+          sx={{
+            px: 2.5,
+            py: 1.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: `1px solid ${C.border}`,
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          <Typography sx={{ fontWeight: 700, fontSize: 14, color: C.textMain }}>
+            Catálogo de Productos
+          </Typography>
+          <Chip
+            label={`${total} ${total === 1 ? 'producto' : 'productos'}`}
+            size="small"
+            sx={{
+              fontSize: 11.5,
+              fontWeight: 600,
+              bgcolor: 'rgba(21,101,192,0.08)',
+              color: '#1565C0',
+              border: 'none',
+            }}
+          />
+        </Box>
+
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TH />
+                <TH>SKU</TH>
+                <TH>Producto</TH>
+                <TH>Categoría</TH>
+                <TH>Almacén</TH>
+                <TH align="right">Precio Venta</TH>
+                <TH align="center">Stock</TH>
+                <TH align="center">Estado</TH>
+                <TH align="right">Acciones</TH>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {/* ── Skeleton ───────────────────────────────────────── */}
+              {loading && Array.from({ length: limit }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 9 }).map((_, j) => (
+                  <TableCell sx={{ py: 1 }}>
+                    <Skeleton variant="rectangular" width={44} height={44} sx={{ borderRadius: '8px' }} />
+                  </TableCell>
+                  {Array.from({ length: 8 }).map((_, j) => (
                     <TableCell key={j}>
-                      <Skeleton />
+                      <Skeleton height={18} sx={{ borderRadius: '4px' }} />
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
-            ) : productos.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary" variant="body2">
-                    No se encontraron productos
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              productos.map(prod => {
+              ))}
+
+              {/* ── Vacío ──────────────────────────────────────────── */}
+              {!loading && productos.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} sx={{ py: 8, textAlign: 'center' }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                      <ImageNotSupportedIcon sx={{ fontSize: 40, color: C.textMuted }} />
+                      <Typography sx={{ color: C.textMuted, fontSize: 14 }}>
+                        No se encontraron productos
+                      </Typography>
+                      <Typography sx={{ color: C.textMuted, fontSize: 12.5 }}>
+                        Intenta ajustar los filtros de búsqueda
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {/* ── Filas ──────────────────────────────────────────── */}
+              {!loading && productos.map(prod => {
                 const lowStock = prod.stock <= prod.stockMinimo;
+                const stockPct = prod.stockMinimo > 0
+                  ? Math.min(100, Math.round((prod.stock / prod.stockMinimo) * 100))
+                  : 100;
+
                 return (
-                  <TableRow key={prod.id} hover>
-                    <TableCell sx={{ p: 0.5 }}>
+                  <TableRow
+                    key={prod.id}
+                    sx={{
+                      '&:hover': { bgcolor: C.rowHover },
+                      '& td': { borderColor: C.border },
+                      transition: 'background-color 0.1s',
+                    }}
+                  >
+                    {/* Imagen */}
+                    <TableCell sx={{ py: 1, px: 1.5, width: 64 }}>
                       {prod.img ? (
                         <Box
                           component="img"
                           src={prod.img}
                           alt={prod.nombre}
-                          sx={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 1, display: 'block' }}
+                          sx={{
+                            width: 46,
+                            height: 46,
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                            border: `1px solid ${C.border}`,
+                            display: 'block',
+                          }}
                         />
                       ) : (
-                        <Box sx={{ width: 44, height: 44, borderRadius: 1, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <ImageNotSupportedIcon sx={{ fontSize: 20, color: 'text.disabled' }} />
+                        <Box
+                          sx={{
+                            width: 46,
+                            height: 46,
+                            borderRadius: '8px',
+                            border: `1px dashed ${C.border}`,
+                            bgcolor: C.headerBg,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <ImageNotSupportedIcon sx={{ fontSize: 18, color: C.textMuted }} />
                         </Box>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {prod.sku.length > 8 ? prod.sku.slice(0, 8) + '…' : prod.sku}
-                      </Typography>
+
+                    {/* SKU */}
+                    <TableCell sx={{ py: 1 }}>
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          px: 0.75,
+                          py: 0.3,
+                          borderRadius: '5px',
+                          bgcolor: C.headerBg,
+                          border: `1px solid ${C.border}`,
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontFamily: 'monospace',
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            color: '#1565C0',
+                            letterSpacing: '0.03em',
+                          }}
+                        >
+                          {prod.sku}
+                        </Typography>
+                      </Box>
                       {prod.codigoBarras && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography
+                          sx={{ display: 'block', fontSize: 10.5, color: C.textMuted, mt: 0.25, fontFamily: 'monospace' }}
+                        >
                           {prod.codigoBarras}
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+
+                    {/* Nombre */}
+                    <TableCell sx={{ py: 1 }}>
+                      <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: C.textMain }}>
                         {prod.nombre}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+
+                    {/* Categoría */}
+                    <TableCell sx={{ py: 1 }}>
+                      <Typography sx={{ fontSize: 13, color: '#475569' }}>
                         {catMap.get(prod.categoriaId) ?? '—'}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+
+                    {/* Almacén */}
+                    <TableCell sx={{ py: 1 }}>
+                      <Typography sx={{ fontSize: 13, color: '#475569' }}>
                         {prod.almacenId ? almMap.get(prod.almacenId) ?? '—' : '—'}
                       </Typography>
                     </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2">{fmt(prod.precioVenta)}</Typography>
+
+                    {/* Precio venta */}
+                    <TableCell align="right" sx={{ py: 1 }}>
+                      <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: C.textMain }}>
+                        {fmt(prod.precioVenta)}
+                      </Typography>
                     </TableCell>
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: 'center' }}>
-                        {lowStock && (
-                          <Tooltip title={`Stock mínimo: ${prod.stockMinimo} · Requiere reposición`}>
-                            <WarningAmberIcon fontSize="small" color="warning" />
-                          </Tooltip>
-                        )}
-                        <Chip
-                          label={prod.stock}
-                          size="small"
-                          color={lowStock ? 'warning' : 'default'}
-                          variant={lowStock ? 'filled' : 'outlined'}
+
+                    {/* Stock */}
+                    <TableCell align="center" sx={{ py: 1, minWidth: 90 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {lowStock && (
+                            <Tooltip title={`Stock mínimo: ${prod.stockMinimo}`}>
+                              <WarningAmberIcon sx={{ fontSize: 14, color: '#F59E0B' }} />
+                            </Tooltip>
+                          )}
+                          <Typography
+                            sx={{
+                              fontSize: 14,
+                              fontWeight: 700,
+                              color: prod.stock === 0
+                                ? '#EF4444'
+                                : lowStock
+                                  ? '#F59E0B'
+                                  : '#1E293B',
+                            }}
+                          >
+                            {prod.stock}
+                          </Typography>
+                        </Box>
+                        {/* Mini barra de stock */}
+                        <Box
+                          sx={{
+                            width: 52,
+                            height: 4,
+                            borderRadius: 2,
+                            bgcolor: C.border,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: `${stockPct}%`,
+                              height: '100%',
+                              borderRadius: 2,
+                              bgcolor: prod.stock === 0
+                                ? '#EF4444'
+                                : lowStock
+                                  ? '#F59E0B'
+                                  : '#22C55E',
+                              transition: 'width 0.3s ease',
+                            }}
+                          />
+                        </Box>
+                        <Typography sx={{ fontSize: 10, color: C.textMuted, lineHeight: 1 }}>
+                          mín {prod.stockMinimo}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+
+                    {/* Estado */}
+                    <TableCell align="center" sx={{ py: 1 }}>
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          px: 1,
+                          py: 0.35,
+                          borderRadius: '20px',
+                          bgcolor: prod.activo
+                            ? 'rgba(34,197,94,0.1)'
+                            : 'rgba(148,163,184,0.12)',
+                          border: `1px solid ${prod.activo ? 'rgba(34,197,94,0.25)' : 'rgba(148,163,184,0.25)'}`,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            bgcolor: prod.activo ? '#16A34A' : C.textMuted,
+                            flexShrink: 0,
+                          }}
                         />
+                        <Typography
+                          sx={{
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            color: prod.activo ? '#15803D' : C.textMuted,
+                          }}
+                        >
+                          {prod.activo ? 'Activo' : 'Inactivo'}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+
+                    {/* Acciones */}
+                    <TableCell align="right" sx={{ py: 1, pr: 2 }}>
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
+                        <Tooltip title="Editar producto" placement="top">
+                          <IconButton
+                            size="small"
+                            onClick={() => onEdit(prod)}
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              color: '#1565C0',
+                              bgcolor: 'rgba(21,101,192,0.07)',
+                              borderRadius: '8px',
+                              '&:hover': { bgcolor: 'rgba(21,101,192,0.15)' },
+                            }}
+                          >
+                            <EditIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar producto" placement="top">
+                          <IconButton
+                            size="small"
+                            onClick={() => onDelete(prod)}
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              color: '#DC2626',
+                              bgcolor: 'rgba(220,38,38,0.07)',
+                              borderRadius: '8px',
+                              '&:hover': { bgcolor: 'rgba(220,38,38,0.15)' },
+                            }}
+                          >
+                            <DeleteIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
                       </Stack>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={prod.activo ? 'Activo' : 'Inactivo'}
-                        color={prod.activo ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Editar">
-                        <IconButton size="small" onClick={() => onEdit(prod)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton size="small" color="error" onClick={() => onDelete(prod)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
-      <TablePagination
-        component="div"
-        count={total}
-        page={page - 1}
-        rowsPerPage={limit}
-        rowsPerPageOptions={[10, 25, 50]}
-        onPageChange={(_, p) => onPageChange(p + 1)}
-        onRowsPerPageChange={e => onLimitChange(Number(e.target.value))}
-        labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
-        labelRowsPerPage="Filas:"
-      />
+        {/* ── Paginación ─────────────────────────────────────────────────── */}
+        <Box
+          sx={{
+            borderTop: `1px solid ${C.border}`,
+            bgcolor: C.headerBg,
+            px: 1,
+          }}
+        >
+          <TablePagination
+            component="div"
+            count={total}
+            page={page - 1}
+            rowsPerPage={limit}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            onPageChange={(_, p) => onPageChange(p + 1)}
+            onRowsPerPageChange={e => onLimitChange(Number(e.target.value))}
+            labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count} registros`}
+            labelRowsPerPage="Filas por página:"
+            sx={{
+              '& .MuiTablePagination-toolbar': { minHeight: 48 },
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                fontSize: 12.5,
+                color: C.headerText,
+              },
+              '& .MuiTablePagination-select': { fontSize: 12.5 },
+            }}
+          />
+        </Box>
+      </Paper>
     </Box>
   );
 }

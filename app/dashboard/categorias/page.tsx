@@ -6,6 +6,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { useToast } from '@/shared/context/ToastContext';
+import CategoriaConfigDialog from '@/modules/categorias/components/CategoriaConfigDialog';
 import CategoriaFormDialog from '@/modules/categorias/components/CategoriaFormDialog';
 import CategoriasTable from '@/modules/categorias/components/CategoriasTable';
 import { useCategorias } from '@/modules/categorias/hooks/useCategorias';
@@ -18,6 +19,7 @@ export default function CategoriasPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Categoria | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Categoria | null>(null);
+  const [configTarget, setConfigTarget] = useState<Categoria | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -75,6 +77,7 @@ export default function CategoriasPage() {
         loading={loading}
         onEdit={handleOpenEdit}
         onDelete={setDeleteTarget}
+        onConfig={setConfigTarget}
       />
 
       <CategoriaFormDialog
@@ -92,6 +95,13 @@ export default function CategoriasPage() {
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
         loading={deleting}
+      />
+
+      <CategoriaConfigDialog
+        open={!!configTarget}
+        categoria={configTarget}
+        onClose={() => setConfigTarget(null)}
+        onSaved={() => showToast('Reglas guardadas', 'success')}
       />
     </>
   );

@@ -5,7 +5,6 @@ import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
 import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import PageHeader from '@/shared/components/ui/PageHeader';
-import StockAlertBanner from '@/shared/components/ui/StockAlertBanner';
 import { useToast } from '@/shared/context/ToastContext';
 import { useCategorias } from '@/modules/categorias/hooks/useCategorias';
 import { useAlmacenes } from '@/modules/almacenes/hooks/useAlmacenes';
@@ -80,9 +79,7 @@ export default function ProductosPage() {
         }
       />
 
-      <StockAlertBanner />
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error &&<Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <ProductosTable
         productos={productos}

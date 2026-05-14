@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -155,17 +154,6 @@ export default function AjusteInventarioFormDialog({ open, onClose, onSubmit, lo
                       errors[`pid_${idx}`] ||
                       (item.producto ? `Stock actual: ${item.producto.stock}` : 'Busca por nombre o SKU')
                     }
-                    slotProps={{
-                      input: {
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {loadingProductos && <CircularProgress size={16} />}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      },
-                    }}
                   />
                 )}
               />

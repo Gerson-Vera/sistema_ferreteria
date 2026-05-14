@@ -18,7 +18,10 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Recurse -Depth 3)",
       "Bash(Select-Object FullName)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Recurse | Where-Object {$_.PSIsContainer} | Select-Object -ExpandProperty FullName | Where-Object {$_ -match \"\\(app|src\\)\"} | Sort-Object)",
-      "Bash(node -e \"require\\('recharts'\\); console.log\\('recharts ok'\\)\")"
+      "Bash(node -e \"require\\('recharts'\\); console.log\\('recharts ok'\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Recurse -Directory)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Format-Table FullName)"
     ]
   }
 }

@@ -13,3 +13,10 @@ export type CreateCategoriaDto = {
 };
 
 export type UpdateCategoriaDto = Partial<CreateCategoriaDto>;
+
+export type CategoriaConfig = {
+  unidadMedidaId: string | null;
+  almacenId: string | null;
+  marcaIds: string[];
+  proveedorIds: string[];
+};

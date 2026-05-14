@@ -6,7 +6,7 @@ import type { PaginatedResponse } from '@/shared/types';
 
 export type StatusFilter = 'all' | 'activo' | 'inactivo';
 
-const EMPTY: PaginatedResponse<Producto> = { data: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+const EMPTY: PaginatedResponse<Producto> = { data: [], total: 0, page: 1, limit: 5, totalPages: 0 };
 
 const toActivo = (s: StatusFilter): boolean | undefined =>
   s === 'all' ? undefined : s === 'activo';
@@ -14,7 +14,7 @@ const toActivo = (s: StatusFilter): boolean | undefined =>
 export function useProductos() {
   const [result, setResult] = useState<PaginatedResponse<Producto>>(EMPTY);
   const [page, setPage] = useState(1);
-  const [limit, setLimitState] = useState(10);
+  const [limit, setLimitState] = useState(5);
   const [search, setSearchState] = useState('');
   const [categoriaId, setCategoriaIdState] = useState('');
   const [almacenId, setAlmacenIdState] = useState('');

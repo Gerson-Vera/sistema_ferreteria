@@ -20,15 +20,15 @@ function ean13(base: string): string {
 // Menús que puede ver cada rol
 const menusPorRol: Record<string, string[]> = {
   ADMIN: [
-    'DASHBOARD', 'INV', 'PRODUCTOS', 'CATEGORIAS', 'UNID_MED',
+    'DASHBOARD', 'INV', 'PRODUCTOS', 'CATEGORIAS', 'MARCAS', 'UNID_MED', 'ALMACENES',
     'MOVIMIENTOS', 'AJUSTES_INV', 'PROVEEDORES', 'COMPRAS',
-    'CLIENTES', 'VENTAS', 'REPORTES',
+    'CLIENTES', 'VENTAS', 'CAJAS', 'REPORTES',
   ],
   VENDEDOR: [
-    'DASHBOARD', 'PRODUCTOS', 'CLIENTES', 'VENTAS', 'REPORTES',
+    'DASHBOARD', 'PRODUCTOS', 'CLIENTES', 'VENTAS', 'CAJAS', 'REPORTES',
   ],
   ALMACEN: [
-    'DASHBOARD', 'INV', 'PRODUCTOS', 'CATEGORIAS', 'UNID_MED',
+    'DASHBOARD', 'INV', 'PRODUCTOS', 'CATEGORIAS', 'MARCAS', 'UNID_MED', 'ALMACENES',
     'MOVIMIENTOS', 'AJUSTES_INV', 'PROVEEDORES', 'COMPRAS',
   ],
 };
@@ -43,6 +43,9 @@ async function main() {
   await db.venta.deleteMany();
   await db.compra.deleteMany();
   await db.producto.deleteMany();
+  await db.categoriaConfig.deleteMany();
+  await db.categoriaMarca.deleteMany();
+  await db.categoriaProveedor.deleteMany();
   await db.menuUsuario.deleteMany();
   await db.menuRol.deleteMany();
   await db.rolUsuario.deleteMany();
@@ -111,18 +114,21 @@ async function main() {
 
   // ── Menús ───────────────────────────────────────────────────────
   const menus = [
-    { codigo: 'DASHBOARD',   descripcion: 'Dashboard',           url: '/dashboard',                    icono: 'Dashboard',     orden: 1  },
-    { codigo: 'INV',         descripcion: 'Inventario',          url: null,                            icono: 'Inventory',     orden: 2  },
-    { codigo: 'PRODUCTOS',   descripcion: 'Productos',           url: '/dashboard/productos',          icono: 'Inventory',     orden: 3  },
-    { codigo: 'CATEGORIAS',  descripcion: 'Categorías',          url: '/dashboard/categorias',         icono: 'Category',      orden: 4  },
-    { codigo: 'UNID_MED',    descripcion: 'Unidades de Medida',  url: '/dashboard/unidades-medida',    icono: 'Straighten',    orden: 5  },
-    { codigo: 'MOVIMIENTOS', descripcion: 'Movimientos',         url: '/dashboard/movimientos',        icono: 'SwapHoriz',     orden: 6  },
-    { codigo: 'AJUSTES_INV', descripcion: 'Ajustes Inventario',  url: '/dashboard/ajustes-inventario', icono: 'Tune',          orden: 7  },
-    { codigo: 'PROVEEDORES', descripcion: 'Proveedores',         url: '/dashboard/proveedores',        icono: 'LocalShipping', orden: 8  },
-    { codigo: 'COMPRAS',     descripcion: 'Compras',             url: '/dashboard/compras',            icono: 'ShoppingCart',  orden: 9  },
-    { codigo: 'CLIENTES',    descripcion: 'Clientes',            url: '/dashboard/clientes',           icono: 'People',        orden: 10 },
-    { codigo: 'VENTAS',      descripcion: 'Ventas',              url: '/dashboard/ventas',             icono: 'PointOfSale',   orden: 11 },
-    { codigo: 'REPORTES',    descripcion: 'Reportes',            url: '/dashboard/reportes',           icono: 'BarChart',      orden: 12 },
+    { codigo: 'DASHBOARD',   descripcion: 'Dashboard',           url: '/dashboard',                     icono: 'Dashboard',     orden: 1  },
+    { codigo: 'INV',         descripcion: 'Inventario',          url: null,                             icono: 'Inventory',     orden: 2  },
+    { codigo: 'PRODUCTOS',   descripcion: 'Productos',           url: '/dashboard/productos',           icono: 'Inventory2',    orden: 3  },
+    { codigo: 'CATEGORIAS',  descripcion: 'Categorías',          url: '/dashboard/categorias',          icono: 'Category',      orden: 4  },
+    { codigo: 'MARCAS',      descripcion: 'Marcas',              url: '/dashboard/marcas',              icono: 'Label',         orden: 5  },
+    { codigo: 'UNID_MED',    descripcion: 'Unidades de Medida',  url: '/dashboard/unidades-medida',     icono: 'Straighten',    orden: 6  },
+    { codigo: 'ALMACENES',   descripcion: 'Almacenes',           url: '/dashboard/almacenes',           icono: 'Warehouse',     orden: 7  },
+    { codigo: 'MOVIMIENTOS', descripcion: 'Movimientos',         url: '/dashboard/movimientos',         icono: 'SwapHoriz',     orden: 8  },
+    { codigo: 'AJUSTES_INV', descripcion: 'Ajustes Inventario',  url: '/dashboard/ajustes-inventario',  icono: 'Tune',          orden: 9  },
+    { codigo: 'PROVEEDORES', descripcion: 'Proveedores',         url: '/dashboard/proveedores',         icono: 'LocalShipping', orden: 10 },
+    { codigo: 'COMPRAS',     descripcion: 'Compras',             url: '/dashboard/compras',             icono: 'ShoppingCart',  orden: 11 },
+    { codigo: 'CLIENTES',    descripcion: 'Clientes',            url: '/dashboard/clientes',            icono: 'People',        orden: 12 },
+    { codigo: 'VENTAS',      descripcion: 'Ventas',              url: '/dashboard/ventas',              icono: 'PointOfSale',   orden: 13 },
+    { codigo: 'CAJAS',       descripcion: 'Cajas',               url: '/dashboard/cajas',               icono: 'Payments',      orden: 14 },
+    { codigo: 'REPORTES',    descripcion: 'Reportes',            url: '/dashboard/reportes',            icono: 'BarChart',      orden: 15 },
   ];
 
   for (const m of menus) {
@@ -623,6 +629,371 @@ async function main() {
     }
   }
   console.log(`✔ ${productos.length} productos creados`);
+
+  // ── Tablas puente — Reglas de negocio por categoría ─────────────
+  //
+  // CategoriaConfig: default unidad de medida + almacén por categoría
+  const categoriaConfigs = [
+    { categoria: catHerr!, unidad: undUnd!, almacen: almPrincipal! },
+    { categoria: catElec!, unidad: undUnd!, almacen: almPrincipal! },
+    { categoria: catPlom!, unidad: undUnd!, almacen: almPrincipal! },
+    { categoria: catPint!, unidad: undGl!,  almacen: almPrincipal! },
+    { categoria: catCons!, unidad: undKg!,  almacen: almDeposito!  },
+    { categoria: catFija!, unidad: undUnd!, almacen: almPrincipal! },
+    { categoria: catJard!, unidad: undUnd!, almacen: almVenta!     },
+    { categoria: catSeg!,  unidad: undUnd!, almacen: almVenta!     },
+  ];
+
+  for (const cfg of categoriaConfigs) {
+    await db.categoriaConfig.upsert({
+      where:  { categoriaId: cfg.categoria.id },
+      update: { unidadMedidaId: cfg.unidad.id, almacenId: cfg.almacen.id },
+      create: { categoriaId: cfg.categoria.id, unidadMedidaId: cfg.unidad.id, almacenId: cfg.almacen.id },
+    });
+  }
+  console.log('✔ CategoriaConfig creados (reglas de unidad y almacén)');
+
+  // CategoriaMarca: marcas habituales por categoría
+  type CatMarcaLink = { categoriaId: number; marcaId: number };
+  const categoriaMarcaLinks: CatMarcaLink[] = [
+    // Herramientas → Bosch, Makita, Stanley, DeWalt, Truper
+    { categoriaId: catHerr!.id, marcaId: marcaBosch!.id   },
+    { categoriaId: catHerr!.id, marcaId: marcaMakita!.id  },
+    { categoriaId: catHerr!.id, marcaId: marcaStanley!.id },
+    { categoriaId: catHerr!.id, marcaId: marcaDeWalt!.id  },
+    { categoriaId: catHerr!.id, marcaId: marcaTruper!.id  },
+    // Pinturas → Tekno, CPP
+    { categoriaId: catPint!.id, marcaId: marcaTekno!.id   },
+    { categoriaId: catPint!.id, marcaId: marcaCPP!.id     },
+    // Jardinería → Truper
+    { categoriaId: catJard!.id, marcaId: marcaTruper!.id  },
+    // Seguridad → 3M
+    { categoriaId: catSeg!.id,  marcaId: marca3M!.id      },
+    // Eléctrico → (genérica: Sin Marca)
+    { categoriaId: catElec!.id, marcaId: marcaSinMarca!.id },
+    // Plomería → (genérica: Sin Marca)
+    { categoriaId: catPlom!.id, marcaId: marcaSinMarca!.id },
+    // Construcción → (genérica: Sin Marca)
+    { categoriaId: catCons!.id, marcaId: marcaSinMarca!.id },
+    // Fijación → (genérica: Sin Marca)
+    { categoriaId: catFija!.id, marcaId: marcaSinMarca!.id },
+  ];
+
+  for (const link of categoriaMarcaLinks) {
+    await db.categoriaMarca.upsert({
+      where:  { categoriaId_marcaId: { categoriaId: link.categoriaId, marcaId: link.marcaId } },
+      update: {},
+      create: link,
+    });
+  }
+  console.log('✔ CategoriaMarca creados (marcas por categoría)');
+
+  // CategoriaProveedor: proveedores habituales por categoría
+  type CatProvLink = { categoriaId: number; proveedorId: number };
+  const categoriaProveedorLinks: CatProvLink[] = [
+    // Herramientas → Herramientas Pro (PROV-005) + Importaciones Técnicas (PROV-003)
+    { categoriaId: catHerr!.id, proveedorId: prov5!.id  },
+    { categoriaId: catHerr!.id, proveedorId: prov3!.id  },
+    // Eléctrico → Electro Sistemas (PROV-006)
+    { categoriaId: catElec!.id, proveedorId: prov6!.id  },
+    // Plomería → Tubería Nacional (PROV-008)
+    { categoriaId: catPlom!.id, proveedorId: prov8!.id  },
+    // Pinturas → Pinturas Andinas (PROV-007)
+    { categoriaId: catPint!.id, proveedorId: prov7!.id  },
+    // Construcción → Construcciones Unidas (PROV-009)
+    { categoriaId: catCons!.id, proveedorId: prov9!.id  },
+    // Fijación → Distribuidora El Maestro (PROV-001) + Ferretería Lima (PROV-002)
+    { categoriaId: catFija!.id, proveedorId: prov1!.id  },
+    { categoriaId: catFija!.id, proveedorId: prov2!.id  },
+    // Jardinería → Materiales del Sur (PROV-004)
+    { categoriaId: catJard!.id, proveedorId: prov4!.id  },
+    // Seguridad → Seguridad Total (PROV-010)
+    { categoriaId: catSeg!.id,  proveedorId: prov10!.id },
+  ];
+
+  for (const link of categoriaProveedorLinks) {
+    await db.categoriaProveedor.upsert({
+      where:  { categoriaId_proveedorId: { categoriaId: link.categoriaId, proveedorId: link.proveedorId } },
+      update: {},
+      create: link,
+    });
+  }
+  console.log('✔ CategoriaProveedor creados (proveedores por categoría)');
+
+  // ════════════════════════════════════════════════════════════════════
+  //  DATOS HISTÓRICOS — Nov 2025 → Abr 2026
+  // ════════════════════════════════════════════════════════════════════
+
+  const allProductos = await db.producto.findMany();
+  const prodMap      = new Map(allProductos.map(p => [p.codigo, p]));
+  const [usuAdmin, usuVend, usuAlm] = await Promise.all([
+    db.usuario.findUnique({ where: { username: 'admin'   } }),
+    db.usuario.findUnique({ where: { username: 'vendedor'} }),
+    db.usuario.findUnique({ where: { username: 'almacen' } }),
+  ]);
+  const allClientes   = await db.cliente.findMany();
+  const allTiposPago  = await db.tipoPago.findMany();
+
+  const tp = (nombre: string) =>
+    (allTiposPago.find(t => t.nombre === nombre) ?? allTiposPago[0]).id;
+
+  // Stock simulado alto para que las salidas no lleguen a negativo
+  const stkMap = new Map<number, number>(
+    allProductos.map(p => [p.id, p.stock + 1500]),
+  );
+
+  let cmpSeq = 0;
+  let vtaSeq = 0;
+
+  // ── Compras ──────────────────────────────────────────────────────
+  type CI = { c: string; q: number };
+  const comprasData: { fecha: Date; prov: string; items: CI[] }[] = [
+    // Nov 2025
+    { fecha:new Date(2025,10, 4), prov:'PROV-005', items:[{c:'HERR-001',q:25},{c:'HERR-003',q:60},{c:'HERR-004',q:20},{c:'HERR-006',q:40}] },
+    { fecha:new Date(2025,10,11), prov:'PROV-006', items:[{c:'ELEC-001',q:10},{c:'ELEC-002',q:120},{c:'ELEC-003',q:150}] },
+    { fecha:new Date(2025,10,19), prov:'PROV-008', items:[{c:'PLOM-001',q:30},{c:'PLOM-002',q:150},{c:'PLOM-004',q:40}] },
+    // Dic 2025
+    { fecha:new Date(2025,11, 2), prov:'PROV-003', items:[{c:'HERR-002',q:6},{c:'HERR-007',q:3}] },
+    { fecha:new Date(2025,11, 9), prov:'PROV-007', items:[{c:'PINT-001',q:25},{c:'PINT-002',q:15},{c:'PINT-003',q:60},{c:'PINT-004',q:40}] },
+    { fecha:new Date(2025,11,16), prov:'PROV-009', items:[{c:'CONS-001',q:80},{c:'CONS-002',q:2000},{c:'CONS-003',q:30}] },
+    { fecha:new Date(2025,11,23), prov:'PROV-001', items:[{c:'FIJA-001',q:50},{c:'FIJA-002',q:60},{c:'FIJA-003',q:100}] },
+    // Ene 2026
+    { fecha:new Date(2026, 0, 7), prov:'PROV-005', items:[{c:'HERR-001',q:20},{c:'HERR-004',q:25},{c:'HERR-005',q:20}] },
+    { fecha:new Date(2026, 0,14), prov:'PROV-006', items:[{c:'ELEC-004',q:60},{c:'ELEC-003',q:100},{c:'ELEC-002',q:80}] },
+    { fecha:new Date(2026, 0,21), prov:'PROV-010', items:[{c:'SEG-001',q:25},{c:'SEG-002',q:35},{c:'SEG-003',q:20},{c:'SEG-004',q:15}] },
+    // Feb 2026
+    { fecha:new Date(2026, 1, 4), prov:'PROV-003', items:[{c:'HERR-002',q:4},{c:'HERR-007',q:2}] },
+    { fecha:new Date(2026, 1,11), prov:'PROV-008', items:[{c:'PLOM-001',q:25},{c:'PLOM-002',q:100},{c:'PLOM-003',q:20},{c:'PLOM-004',q:30}] },
+    { fecha:new Date(2026, 1,20), prov:'PROV-007', items:[{c:'PINT-001',q:20},{c:'PINT-002',q:12},{c:'PINT-004',q:25}] },
+    // Mar 2026
+    { fecha:new Date(2026, 2, 5), prov:'PROV-001', items:[{c:'FIJA-001',q:60},{c:'FIJA-002',q:70},{c:'FIJA-003',q:120}] },
+    { fecha:new Date(2026, 2,13), prov:'PROV-009', items:[{c:'CONS-001',q:60},{c:'CONS-003',q:25}] },
+    { fecha:new Date(2026, 2,25), prov:'PROV-006', items:[{c:'ELEC-001',q:12},{c:'ELEC-002',q:100},{c:'ELEC-003',q:120}] },
+    // Abr 2026
+    { fecha:new Date(2026, 3, 3), prov:'PROV-003', items:[{c:'HERR-002',q:5},{c:'HERR-007',q:2}] },
+    { fecha:new Date(2026, 3, 9), prov:'PROV-007', items:[{c:'PINT-001',q:30},{c:'PINT-002',q:15},{c:'PINT-003',q:40}] },
+    { fecha:new Date(2026, 3,17), prov:'PROV-008', items:[{c:'PLOM-001',q:20},{c:'PLOM-002',q:80},{c:'PLOM-004',q:25}] },
+  ];
+
+  for (const cmp of comprasData) {
+    const proveedor = await db.proveedor.findUnique({ where: { codigo: cmp.prov } });
+    if (!proveedor) continue;
+    const numero = `CMP-${String(++cmpSeq).padStart(5, '0')}`;
+    type CIC = { productoId:number; cantidad:number; costoUnitario:number; subtotal:number };
+    const its: CIC[] = [];
+    let sub = 0;
+    for (const it of cmp.items) {
+      const p = prodMap.get(it.c); if (!p) continue;
+      const cu = Number(p.precioCompra);
+      const s  = Math.round(cu * it.q * 100) / 100;
+      sub += s;
+      its.push({ productoId: p.id, cantidad: it.q, costoUnitario: cu, subtotal: s });
+    }
+    const igv   = Math.round(sub * 0.18 * 100) / 100;
+    const total = Math.round((sub + igv) * 100) / 100;
+    const compra = await db.compra.create({
+      data: {
+        numero, proveedorId: proveedor.id, usuarioId: usuAdmin!.id,
+        subtotal: sub, igv, total,
+        tipoPagoId: tp('Transferencia Bancaria'),
+        estado: 'recibida', creadoEn: cmp.fecha,
+        lista: { create: its },
+      },
+    });
+    for (const it of its) {
+      const prev = stkMap.get(it.productoId) ?? 0;
+      const next = prev + it.cantidad;
+      stkMap.set(it.productoId, next);
+      await db.movimientoInventario.create({
+        data: {
+          productoId: it.productoId, tipo: 'entrada_compra',
+          cantidad: it.cantidad, stockAnterior: prev, stockNuevo: next,
+          referenciaId: compra.id, referenciaTipo: 'COMPRA',
+          usuarioId: usuAdmin!.id, creadoEn: cmp.fecha,
+        },
+      });
+    }
+  }
+  console.log(`✔ ${cmpSeq} compras históricas creadas`);
+
+  // ── Ventas ───────────────────────────────────────────────────────
+  type VI = { c: string; q: number };
+  const ventasData: { fecha:Date; cli:number; usu:number; tp:string; items:VI[] }[] = [
+    // ── Noviembre 2025 ──
+    { fecha:new Date(2025,10, 3, 9,30), cli: 0, usu:1, tp:'Efectivo',                 items:[{c:'HERR-001',q:2},{c:'HERR-003',q:3},{c:'FIJA-002',q:5}] },
+    { fecha:new Date(2025,10, 5,10, 0), cli: 3, usu:0, tp:'Transferencia Bancaria',    items:[{c:'ELEC-001',q:3},{c:'ELEC-004',q:10}] },
+    { fecha:new Date(2025,10, 7,11,30), cli: 1, usu:1, tp:'Yape',                      items:[{c:'PINT-001',q:2},{c:'PINT-003',q:4}] },
+    { fecha:new Date(2025,10,10, 9, 0), cli: 5, usu:0, tp:'Transferencia Bancaria',    items:[{c:'CONS-001',q:10},{c:'CONS-002',q:200}] },
+    { fecha:new Date(2025,10,12,14, 0), cli: 2, usu:1, tp:'Efectivo',                 items:[{c:'HERR-002',q:1},{c:'HERR-006',q:2}] },
+    { fecha:new Date(2025,10,14,10,30), cli: 6, usu:1, tp:'Efectivo',                 items:[{c:'PLOM-001',q:5},{c:'PLOM-002',q:15},{c:'PLOM-004',q:5}] },
+    { fecha:new Date(2025,10,17, 9, 0), cli: 4, usu:1, tp:'Tarjeta de Débito',        items:[{c:'SEG-001',q:3},{c:'SEG-002',q:5}] },
+    { fecha:new Date(2025,10,19,11, 0), cli: 0, usu:1, tp:'Yape',                      items:[{c:'HERR-003',q:5},{c:'FIJA-001',q:3},{c:'FIJA-003',q:4}] },
+    { fecha:new Date(2025,10,21,15,30), cli:10, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'ELEC-002',q:20},{c:'ELEC-003',q:30}] },
+    { fecha:new Date(2025,10,25,10, 0), cli: 7, usu:0, tp:'Transferencia Bancaria',    items:[{c:'PINT-001',q:4},{c:'PINT-002',q:2},{c:'PINT-004',q:5}] },
+    { fecha:new Date(2025,10,27, 9,30), cli: 1, usu:1, tp:'Efectivo',                 items:[{c:'HERR-004',q:2},{c:'HERR-001',q:1}] },
+    { fecha:new Date(2025,10,29,14, 0), cli:12, usu:0, tp:'Transferencia Bancaria',    items:[{c:'CONS-001',q:20},{c:'FIJA-001',q:10},{c:'FIJA-002',q:15}] },
+    // ── Diciembre 2025 ──
+    { fecha:new Date(2025,11, 1, 9, 0), cli: 3, usu:0, tp:'Transferencia Bancaria',    items:[{c:'HERR-002',q:2},{c:'HERR-007',q:1}] },
+    { fecha:new Date(2025,11, 3,10,30), cli: 8, usu:1, tp:'Efectivo',                 items:[{c:'PINT-001',q:3},{c:'PINT-002',q:2},{c:'PINT-003',q:5}] },
+    { fecha:new Date(2025,11, 5,11, 0), cli: 0, usu:1, tp:'Yape',                      items:[{c:'FIJA-001',q:5},{c:'FIJA-002',q:10},{c:'FIJA-003',q:8}] },
+    { fecha:new Date(2025,11, 8, 9,30), cli: 5, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'CONS-001',q:15},{c:'CONS-002',q:300}] },
+    { fecha:new Date(2025,11,10,14, 0), cli: 2, usu:1, tp:'Efectivo',                 items:[{c:'HERR-001',q:3},{c:'HERR-003',q:5}] },
+    { fecha:new Date(2025,11,12,10, 0), cli: 9, usu:1, tp:'Tarjeta de Débito',        items:[{c:'ELEC-001',q:2},{c:'ELEC-002',q:30}] },
+    { fecha:new Date(2025,11,15, 9, 0), cli: 6, usu:1, tp:'Efectivo',                 items:[{c:'PLOM-001',q:8},{c:'PLOM-002',q:25},{c:'PLOM-004',q:8}] },
+    { fecha:new Date(2025,11,17,11,30), cli:13, usu:0, tp:'Transferencia Bancaria',    items:[{c:'SEG-001',q:10},{c:'SEG-002',q:15},{c:'SEG-003',q:8}] },
+    { fecha:new Date(2025,11,19,15, 0), cli: 4, usu:1, tp:'Yape',                      items:[{c:'HERR-006',q:3},{c:'HERR-004',q:2}] },
+    { fecha:new Date(2025,11,22, 9,30), cli:11, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'PINT-001',q:5},{c:'PINT-002',q:3}] },
+    { fecha:new Date(2025,11,24,10, 0), cli: 0, usu:1, tp:'Efectivo',                 items:[{c:'ELEC-003',q:20},{c:'ELEC-004',q:5}] },
+    { fecha:new Date(2025,11,26, 9, 0), cli: 7, usu:0, tp:'Transferencia Bancaria',    items:[{c:'CONS-001',q:25},{c:'CONS-003',q:10}] },
+    { fecha:new Date(2025,11,29,14, 0), cli: 1, usu:1, tp:'Efectivo',                 items:[{c:'HERR-001',q:4},{c:'HERR-003',q:6},{c:'FIJA-002',q:8}] },
+    // ── Enero 2026 ──
+    { fecha:new Date(2026, 0, 5, 9, 0), cli: 2, usu:1, tp:'Efectivo',                 items:[{c:'HERR-001',q:2},{c:'HERR-004',q:2}] },
+    { fecha:new Date(2026, 0, 7,10,30), cli: 5, usu:0, tp:'Transferencia Bancaria',    items:[{c:'ELEC-001',q:3},{c:'ELEC-004',q:8}] },
+    { fecha:new Date(2026, 0, 9,11, 0), cli: 0, usu:1, tp:'Yape',                      items:[{c:'FIJA-001',q:4},{c:'FIJA-003',q:6}] },
+    { fecha:new Date(2026, 0,12, 9,30), cli: 3, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'CONS-001',q:10},{c:'CONS-002',q:150}] },
+    { fecha:new Date(2026, 0,14,14, 0), cli: 8, usu:1, tp:'Efectivo',                 items:[{c:'PINT-001',q:2},{c:'PINT-003',q:3}] },
+    { fecha:new Date(2026, 0,16,10, 0), cli: 1, usu:1, tp:'Efectivo',                 items:[{c:'HERR-003',q:5},{c:'HERR-006',q:3}] },
+    { fecha:new Date(2026, 0,19, 9, 0), cli: 6, usu:1, tp:'Tarjeta de Débito',        items:[{c:'PLOM-001',q:4},{c:'PLOM-002',q:10},{c:'PLOM-004',q:4}] },
+    { fecha:new Date(2026, 0,21,11,30), cli:10, usu:0, tp:'Transferencia Bancaria',    items:[{c:'SEG-001',q:5},{c:'SEG-002',q:8}] },
+    { fecha:new Date(2026, 0,23,15, 0), cli: 4, usu:1, tp:'Yape',                      items:[{c:'ELEC-002',q:15},{c:'ELEC-003',q:20}] },
+    { fecha:new Date(2026, 0,27, 9,30), cli:14, usu:0, tp:'Transferencia Bancaria',    items:[{c:'HERR-002',q:1},{c:'HERR-007',q:1}] },
+    { fecha:new Date(2026, 0,30,10, 0), cli: 2, usu:1, tp:'Efectivo',                 items:[{c:'PINT-002',q:2},{c:'PINT-004',q:4}] },
+    // ── Febrero 2026 ──
+    { fecha:new Date(2026, 1, 3, 9, 0), cli: 9, usu:1, tp:'Efectivo',                 items:[{c:'HERR-001',q:3},{c:'HERR-005',q:2}] },
+    { fecha:new Date(2026, 1, 5,10,30), cli:12, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'CONS-001',q:15},{c:'CONS-002',q:200},{c:'CONS-003',q:8}] },
+    { fecha:new Date(2026, 1, 7,11, 0), cli: 0, usu:1, tp:'Yape',                      items:[{c:'FIJA-001',q:5},{c:'FIJA-002',q:8}] },
+    { fecha:new Date(2026, 1,10, 9,30), cli: 5, usu:0, tp:'Transferencia Bancaria',    items:[{c:'ELEC-001',q:4},{c:'ELEC-002',q:25}] },
+    { fecha:new Date(2026, 1,12,14, 0), cli: 3, usu:1, tp:'Efectivo',                 items:[{c:'PINT-001',q:3},{c:'PINT-002',q:2},{c:'PINT-003',q:4}] },
+    { fecha:new Date(2026, 1,14,10, 0), cli: 7, usu:1, tp:'Tarjeta de Débito',        items:[{c:'HERR-002',q:1},{c:'HERR-006',q:2},{c:'HERR-003',q:4}] },
+    { fecha:new Date(2026, 1,18, 9, 0), cli: 1, usu:1, tp:'Efectivo',                 items:[{c:'PLOM-001',q:6},{c:'PLOM-004',q:5}] },
+    { fecha:new Date(2026, 1,20,11,30), cli: 6, usu:1, tp:'Yape',                      items:[{c:'SEG-001',q:4},{c:'SEG-002',q:6},{c:'SEG-004',q:3}] },
+    { fecha:new Date(2026, 1,24,15, 0), cli:11, usu:0, tp:'Transferencia Bancaria',    items:[{c:'ELEC-003',q:25},{c:'ELEC-004',q:8}] },
+    { fecha:new Date(2026, 1,26, 9,30), cli: 4, usu:1, tp:'Efectivo',                 items:[{c:'HERR-004',q:3},{c:'FIJA-003',q:5}] },
+    { fecha:new Date(2026, 1,28,10, 0), cli:13, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'CONS-001',q:20},{c:'FIJA-001',q:8}] },
+    // ── Marzo 2026 ──
+    { fecha:new Date(2026, 2, 3, 9, 0), cli: 0, usu:1, tp:'Efectivo',                 items:[{c:'HERR-001',q:4},{c:'HERR-003',q:6}] },
+    { fecha:new Date(2026, 2, 5,10,30), cli: 5, usu:0, tp:'Transferencia Bancaria',    items:[{c:'CONS-001',q:20},{c:'CONS-002',q:400}] },
+    { fecha:new Date(2026, 2, 7,11, 0), cli: 8, usu:1, tp:'Yape',                      items:[{c:'PINT-001',q:4},{c:'PINT-002',q:3},{c:'PINT-004',q:5}] },
+    { fecha:new Date(2026, 2,10, 9,30), cli: 2, usu:1, tp:'Efectivo',                 items:[{c:'PLOM-001',q:7},{c:'PLOM-002',q:20},{c:'PLOM-004',q:6}] },
+    { fecha:new Date(2026, 2,12,14, 0), cli:12, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'ELEC-001',q:5},{c:'ELEC-004',q:15}] },
+    { fecha:new Date(2026, 2,14,10, 0), cli: 9, usu:1, tp:'Efectivo',                 items:[{c:'HERR-002',q:2},{c:'HERR-007',q:1}] },
+    { fecha:new Date(2026, 2,17, 9, 0), cli: 3, usu:1, tp:'Tarjeta de Débito',        items:[{c:'SEG-001',q:6},{c:'SEG-002',q:10}] },
+    { fecha:new Date(2026, 2,19,11,30), cli: 6, usu:1, tp:'Yape',                      items:[{c:'FIJA-001',q:6},{c:'FIJA-002',q:10},{c:'FIJA-003',q:8}] },
+    { fecha:new Date(2026, 2,21,15, 0), cli:14, usu:0, tp:'Transferencia Bancaria',    items:[{c:'CONS-001',q:15},{c:'CONS-003',q:12}] },
+    { fecha:new Date(2026, 2,24, 9,30), cli: 1, usu:1, tp:'Efectivo',                 items:[{c:'HERR-004',q:4},{c:'HERR-006',q:5}] },
+    { fecha:new Date(2026, 2,26,10, 0), cli: 7, usu:0, tp:'Transferencia Bancaria',    items:[{c:'ELEC-002',q:30},{c:'ELEC-003',q:40}] },
+    { fecha:new Date(2026, 2,28, 9, 0), cli: 4, usu:1, tp:'Yape',                      items:[{c:'PINT-001',q:5},{c:'PINT-003',q:6}] },
+    { fecha:new Date(2026, 2,31,14, 0), cli:10, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'HERR-001',q:5},{c:'HERR-005',q:3}] },
+    // ── Abril 2026 ──
+    { fecha:new Date(2026, 3, 2, 9, 0), cli:11, usu:1, tp:'Efectivo',                 items:[{c:'HERR-001',q:3},{c:'HERR-003',q:5}] },
+    { fecha:new Date(2026, 3, 4,10,30), cli: 5, usu:0, tp:'Transferencia Bancaria',    items:[{c:'CONS-001',q:18},{c:'CONS-002',q:350}] },
+    { fecha:new Date(2026, 3, 7,11, 0), cli: 0, usu:1, tp:'Yape',                      items:[{c:'PINT-001',q:3},{c:'PINT-002',q:2}] },
+    { fecha:new Date(2026, 3, 9, 9,30), cli: 3, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'ELEC-001',q:4},{c:'ELEC-002',q:20},{c:'ELEC-003',q:25}] },
+    { fecha:new Date(2026, 3,11,14, 0), cli: 8, usu:1, tp:'Efectivo',                 items:[{c:'HERR-002',q:1},{c:'HERR-006',q:3}] },
+    { fecha:new Date(2026, 3,14,10, 0), cli: 2, usu:1, tp:'Tarjeta de Débito',        items:[{c:'PLOM-001',q:6},{c:'PLOM-002',q:18},{c:'PLOM-004',q:6}] },
+    { fecha:new Date(2026, 3,16, 9, 0), cli: 6, usu:1, tp:'Efectivo',                 items:[{c:'SEG-001',q:5},{c:'SEG-002',q:8}] },
+    { fecha:new Date(2026, 3,18,11,30), cli: 9, usu:1, tp:'Yape',                      items:[{c:'FIJA-001',q:7},{c:'FIJA-002',q:12}] },
+    { fecha:new Date(2026, 3,22,15, 0), cli:14, usu:0, tp:'Transferencia Bancaria',    items:[{c:'CONS-001',q:12},{c:'CONS-003',q:10}] },
+    { fecha:new Date(2026, 3,24, 9,30), cli: 4, usu:1, tp:'Efectivo',                 items:[{c:'HERR-004',q:3},{c:'HERR-001',q:4}] },
+    { fecha:new Date(2026, 3,26,10, 0), cli:12, usu:0, tp:'Crédito (Cuenta Corriente)',items:[{c:'PINT-001',q:6},{c:'PINT-002',q:4},{c:'PINT-004',q:6}] },
+    { fecha:new Date(2026, 3,29, 9, 0), cli: 7, usu:0, tp:'Transferencia Bancaria',    items:[{c:'ELEC-004',q:10},{c:'ELEC-002',q:15}] },
+    { fecha:new Date(2026, 3,30,14, 0), cli: 1, usu:1, tp:'Efectivo',                 items:[{c:'HERR-001',q:5},{c:'HERR-003',q:8},{c:'FIJA-003',q:6}] },
+  ];
+
+  for (const vta of ventasData) {
+    const numero  = `VTA-${String(++vtaSeq).padStart(5, '0')}`;
+    const cliente = allClientes[vta.cli % allClientes.length];
+    const usuario = vta.usu === 0 ? usuAdmin! : usuVend!;
+    type VIC = { productoId:number; cantidad:number; precioUnitario:number; subtotal:number };
+    const its: VIC[] = [];
+    let sub = 0;
+    for (const it of vta.items) {
+      const p = prodMap.get(it.c); if (!p) continue;
+      const pu = Number(p.precioVenta);
+      const s  = Math.round(pu * it.q * 100) / 100;
+      sub += s;
+      its.push({ productoId: p.id, cantidad: it.q, precioUnitario: pu, subtotal: s });
+    }
+    if (its.length === 0) continue;
+    const igv   = Math.round(sub * 0.18 * 100) / 100;
+    const total = Math.round((sub + igv) * 100) / 100;
+    const venta = await db.venta.create({
+      data: {
+        numero, clienteId: cliente.id, usuarioId: usuario.id,
+        subtotal: sub, igv, total,
+        tipoPagoId: tp(vta.tp),
+        estado: 'completada', creadoEn: vta.fecha,
+        lista: { create: its },
+      },
+    });
+    for (const it of its) {
+      const prev = stkMap.get(it.productoId) ?? 0;
+      const next = Math.max(0, prev - it.cantidad);
+      stkMap.set(it.productoId, next);
+      await db.movimientoInventario.create({
+        data: {
+          productoId: it.productoId, tipo: 'salida_venta',
+          cantidad: it.cantidad, stockAnterior: prev, stockNuevo: next,
+          referenciaId: venta.id, referenciaTipo: 'VENTA',
+          usuarioId: usuario.id, creadoEn: vta.fecha,
+        },
+      });
+    }
+  }
+  console.log(`✔ ${vtaSeq} ventas históricas creadas`);
+
+  // ── Ajustes de inventario ────────────────────────────────────────
+  const ajustesData = [
+    {
+      numero: 'AJ-202601-001', fecha: new Date(2026,0,15),
+      motivo: 'Inventario físico anual — conteo general',
+      observaciones: 'Conteo 15 enero 2026. Diferencias menores en eléctrico y seguridad.',
+      items: [{c:'ELEC-003',sf:140},{c:'SEG-003',sf:2},{c:'SEG-004',sf:1},{c:'FIJA-002',sf:72}],
+    },
+    {
+      numero: 'AJ-202603-001', fecha: new Date(2026,2,20),
+      motivo: 'Verificación spot — categoría Seguridad',
+      observaciones: 'Revisión sorpresa. Lentes y candados con diferencia por deterioro.',
+      items: [{c:'SEG-003',sf:3},{c:'SEG-004',sf:2}],
+    },
+    {
+      numero: 'AJ-202604-001', fecha: new Date(2026,3,28),
+      motivo: 'Conteo de cierre mensual — Abril 2026',
+      observaciones: 'Conteo rutinario de fin de mes. Diferencias en tornillería.',
+      items: [{c:'FIJA-001',sf:48},{c:'FIJA-003',sf:92}],
+    },
+  ];
+
+  for (const aj of ajustesData) {
+    const ajuste = await db.ajusteInventario.create({
+      data: {
+        numero: aj.numero, motivo: aj.motivo, observaciones: aj.observaciones,
+        usuarioId: usuAlm!.id, estado: 'aplicado', creadoEn: aj.fecha,
+      },
+    });
+    for (const it of aj.items) {
+      const prod = prodMap.get(it.c); if (!prod) continue;
+      const ss   = stkMap.get(prod.id) ?? prod.stock;
+      const diff = it.sf - ss;
+      await db.ajusteInventarioItem.create({
+        data: { ajusteId: ajuste.id, productoId: prod.id, stockSistema: ss, stockFisico: it.sf, diferencia: diff },
+      });
+      if (diff !== 0) {
+        const prev = stkMap.get(prod.id) ?? 0;
+        stkMap.set(prod.id, it.sf);
+        await db.movimientoInventario.create({
+          data: {
+            productoId: prod.id,
+            tipo: diff > 0 ? 'entrada_ajuste' : 'salida_ajuste',
+            cantidad: Math.abs(diff), stockAnterior: prev, stockNuevo: it.sf,
+            referenciaId: ajuste.id, referenciaTipo: 'AJUSTE',
+            usuarioId: usuAlm!.id, creadoEn: aj.fecha,
+          },
+        });
+      }
+    }
+  }
+  console.log(`✔ ${ajustesData.length} ajustes de inventario creados`);
 
   console.log('\n✅ Seed completado correctamente');
   console.log('   Usuarios de acceso:');

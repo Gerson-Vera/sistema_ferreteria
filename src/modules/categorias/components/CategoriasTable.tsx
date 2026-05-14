@@ -22,6 +22,7 @@ import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
+import SettingsIcon from '@mui/icons-material/Settings';
 import type { Categoria } from '../types';
 
 type StatusFilter = 'all' | 'activo' | 'inactivo';
@@ -31,9 +32,10 @@ type Props = {
   loading: boolean;
   onEdit: (categoria: Categoria) => void;
   onDelete: (categoria: Categoria) => void;
+  onConfig: (categoria: Categoria) => void;
 };
 
-export default function CategoriasTable({ categorias, loading, onEdit, onDelete }: Props) {
+export default function CategoriasTable({ categorias, loading, onEdit, onDelete, onConfig }: Props) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('activo');
   const [page, setPage] = useState(0);
@@ -94,6 +96,7 @@ export default function CategoriasTable({ categorias, loading, onEdit, onDelete 
               <TableCell>Descripción</TableCell>
               <TableCell align="center">Estado</TableCell>
               <TableCell>Creado</TableCell>
+              <TableCell align="right">Reglas</TableCell>
               <TableCell align="right">Acciones</TableCell>
             </TableRow>
           </TableHead>
@@ -101,14 +104,14 @@ export default function CategoriasTable({ categorias, loading, onEdit, onDelete 
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 5 }).map((_, j) => (
+                  {Array.from({ length: 6 }).map((_, j) => (
                     <TableCell key={j}><Skeleton /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary" variant="body2">
                     {search ? 'No se encontraron resultados' : 'No hay categorías registradas'}
                   </Typography>
@@ -138,6 +141,13 @@ export default function CategoriasTable({ categorias, loading, onEdit, onDelete 
                     <Typography variant="body2" color="text.secondary">
                       {new Date(cat.creadoEn).toLocaleDateString('es-PE')}
                     </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Configurar reglas de categoría">
+                      <IconButton size="small" color="primary" onClick={() => onConfig(cat)}>
+                        <SettingsIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title="Editar">

@@ -1,4 +1,4 @@
-import type { Categoria, CreateCategoriaDto, UpdateCategoriaDto } from '../types';
+import type { Categoria, CategoriaConfig, CreateCategoriaDto, UpdateCategoriaDto } from '../types';
 
 const BASE = '/api/categorias';
 
@@ -43,6 +43,25 @@ export const categoriasClientService = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error ?? 'Error al eliminar categoría');
+    }
+  },
+
+  async getConfig(id: string): Promise<CategoriaConfig> {
+    const res = await fetch(`${BASE}/${id}/config`);
+    if (!res.ok) throw new Error('Error al cargar configuración');
+    const json = await res.json();
+    return json.data as CategoriaConfig;
+  },
+
+  async setConfig(id: string, data: CategoriaConfig): Promise<void> {
+    const res = await fetch(`${BASE}/${id}/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? 'Error al guardar configuración');
     }
   },
 };
