@@ -17,19 +17,28 @@ function ean13(base: string): string {
   return raw + String((10 - (check % 10)) % 10);
 }
 
-// Menús que puede ver cada rol
+// Menús que puede ver cada rol (incluye secciones padre)
 const menusPorRol: Record<string, string[]> = {
   ADMIN: [
-    'DASHBOARD', 'INV', 'PRODUCTOS', 'CATEGORIAS', 'MARCAS', 'UNID_MED', 'ALMACENES',
-    'MOVIMIENTOS', 'AJUSTES_INV', 'PROVEEDORES', 'COMPRAS',
-    'CLIENTES', 'VENTAS', 'CAJAS', 'REPORTES',
+    'DASHBOARD',
+    'INV', 'PRODUCTOS', 'CATEGORIAS', 'MARCAS', 'UNID_MED', 'ALMACENES',
+    'MOVIMIENTOS', 'AJUSTES_INV', 'CONTROL_STOCK', 'PLANIF_INV', 'ROTACION_INV',
+    'S_COMPRAS', 'PROVEEDORES', 'ORDENES_OC', 'COMPRAS',
+    'S_VENTAS', 'CLIENTES', 'VENTAS', 'CAJAS',
+    'S_ANALISIS', 'REPORTES',
+    'S_SEGURIDAD', 'SEC_USUARIOS', 'SEC_ROLES', 'SEC_MENUS',
   ],
   VENDEDOR: [
-    'DASHBOARD', 'PRODUCTOS', 'CLIENTES', 'VENTAS', 'CAJAS', 'REPORTES',
+    'DASHBOARD',
+    'PRODUCTOS',
+    'S_VENTAS', 'CLIENTES', 'VENTAS', 'CAJAS',
+    'S_ANALISIS', 'REPORTES',
   ],
   ALMACEN: [
-    'DASHBOARD', 'INV', 'PRODUCTOS', 'CATEGORIAS', 'MARCAS', 'UNID_MED', 'ALMACENES',
-    'MOVIMIENTOS', 'AJUSTES_INV', 'PROVEEDORES', 'COMPRAS',
+    'DASHBOARD',
+    'INV', 'PRODUCTOS', 'CATEGORIAS', 'MARCAS', 'UNID_MED', 'ALMACENES',
+    'MOVIMIENTOS', 'AJUSTES_INV', 'CONTROL_STOCK', 'PLANIF_INV', 'ROTACION_INV',
+    'S_COMPRAS', 'PROVEEDORES', 'ORDENES_OC', 'COMPRAS',
   ],
 };
 
@@ -112,30 +121,72 @@ async function main() {
   }
   console.log('✔ Roles creados');
 
-  // ── Menús ───────────────────────────────────────────────────────
-  const menus = [
-    { codigo: 'DASHBOARD',   descripcion: 'Dashboard',           url: '/dashboard',                     icono: 'Dashboard',     orden: 1  },
-    { codigo: 'INV',         descripcion: 'Inventario',          url: null,                             icono: 'Inventory',     orden: 2  },
-    { codigo: 'PRODUCTOS',   descripcion: 'Productos',           url: '/dashboard/productos',           icono: 'Inventory2',    orden: 3  },
-    { codigo: 'CATEGORIAS',  descripcion: 'Categorías',          url: '/dashboard/categorias',          icono: 'Category',      orden: 4  },
-    { codigo: 'MARCAS',      descripcion: 'Marcas',              url: '/dashboard/marcas',              icono: 'Label',         orden: 5  },
-    { codigo: 'UNID_MED',    descripcion: 'Unidades de Medida',  url: '/dashboard/unidades-medida',     icono: 'Straighten',    orden: 6  },
-    { codigo: 'ALMACENES',   descripcion: 'Almacenes',           url: '/dashboard/almacenes',           icono: 'Warehouse',     orden: 7  },
-    { codigo: 'MOVIMIENTOS', descripcion: 'Movimientos',         url: '/dashboard/movimientos',         icono: 'SwapHoriz',     orden: 8  },
-    { codigo: 'AJUSTES_INV', descripcion: 'Ajustes Inventario',  url: '/dashboard/ajustes-inventario',  icono: 'Tune',          orden: 9  },
-    { codigo: 'PROVEEDORES', descripcion: 'Proveedores',         url: '/dashboard/proveedores',         icono: 'LocalShipping', orden: 10 },
-    { codigo: 'COMPRAS',     descripcion: 'Compras',             url: '/dashboard/compras',             icono: 'ShoppingCart',  orden: 11 },
-    { codigo: 'CLIENTES',    descripcion: 'Clientes',            url: '/dashboard/clientes',            icono: 'People',        orden: 12 },
-    { codigo: 'VENTAS',      descripcion: 'Ventas',              url: '/dashboard/ventas',              icono: 'PointOfSale',   orden: 13 },
-    { codigo: 'CAJAS',       descripcion: 'Cajas',               url: '/dashboard/cajas',               icono: 'Payments',      orden: 14 },
-    { codigo: 'REPORTES',    descripcion: 'Reportes',            url: '/dashboard/reportes',            icono: 'BarChart',      orden: 15 },
+  // ── Menús: secciones raíz (sin padre) ─────────────────────────
+  type MenuBase = { codigo: string; descripcion: string; url: string | null; icono: string; orden: number };
+
+  const secciones: MenuBase[] = [
+    { codigo: 'DASHBOARD',   descripcion: 'Dashboard',  url: '/dashboard', icono: 'Speed',        orden: 1 },
+    { codigo: 'INV',         descripcion: 'Inventario', url: null,         icono: 'Inventory2',   orden: 2 },
+    { codigo: 'S_COMPRAS',   descripcion: 'Compras',    url: null,         icono: 'ShoppingCart', orden: 3 },
+    { codigo: 'S_VENTAS',    descripcion: 'Ventas',     url: null,         icono: 'ReceiptLong',  orden: 4 },
+    { codigo: 'S_ANALISIS',  descripcion: 'Análisis',   url: null,         icono: 'Assessment',   orden: 5 },
+    { codigo: 'S_SEGURIDAD', descripcion: 'Seguridad',  url: null,         icono: 'Shield',       orden: 6 },
   ];
 
-  for (const m of menus) {
-    await db.menu.upsert({ where: { codigo: m.codigo }, update: {}, create: { ...m, menuPadreId: null } });
+  for (const m of secciones) {
+    await db.menu.upsert({
+      where:  { codigo: m.codigo },
+      update: { descripcion: m.descripcion, url: m.url, icono: m.icono, orden: m.orden, menuPadreId: null },
+      create: { ...m, menuPadreId: null },
+    });
   }
-  console.log('✔ Menús creados');
 
+  // Recuperar IDs de secciones
+  const [secDash, secInv, secCompras, secVentas, secAnalisis, secSeguridad] = await Promise.all(
+    ['DASHBOARD', 'INV', 'S_COMPRAS', 'S_VENTAS', 'S_ANALISIS', 'S_SEGURIDAD'].map(
+      c => db.menu.findUnique({ where: { codigo: c } })
+    )
+  );
+
+  // ── Menús hijos con padre ────────────────────────────────────────
+  const hijos: (MenuBase & { padre: { id: number } | null })[] = [
+    // ── Inventario
+    { codigo: 'PRODUCTOS',     descripcion: 'Productos',           url: '/dashboard/productos',                icono: 'Inventory2',     orden: 1,  padre: secInv },
+    { codigo: 'CATEGORIAS',    descripcion: 'Categorías',          url: '/dashboard/categorias',               icono: 'AccountTree',    orden: 2,  padre: secInv },
+    { codigo: 'MARCAS',        descripcion: 'Marcas',              url: '/dashboard/marcas',                   icono: 'Label',          orden: 3,  padre: secInv },
+    { codigo: 'UNID_MED',      descripcion: 'Unidades de Medida',  url: '/dashboard/unidades-medida',          icono: 'Scale',          orden: 4,  padre: secInv },
+    { codigo: 'ALMACENES',     descripcion: 'Almacenes',           url: '/dashboard/almacenes',                icono: 'Warehouse',      orden: 5,  padre: secInv },
+    { codigo: 'MOVIMIENTOS',   descripcion: 'Movimientos',         url: '/dashboard/movimientos',              icono: 'CompareArrows',  orden: 6,  padre: secInv },
+    { codigo: 'AJUSTES_INV',   descripcion: 'Ajustes Inventario',  url: '/dashboard/ajustes-inventario',       icono: 'Tune',           orden: 7,  padre: secInv },
+    { codigo: 'CONTROL_STOCK', descripcion: 'Control de Stock',    url: '/dashboard/control-stock',            icono: 'WarningAmber',   orden: 8,  padre: secInv },
+    { codigo: 'PLANIF_INV',    descripcion: 'Planificación',       url: '/dashboard/planificacion-inventario', icono: 'PendingActions', orden: 9,  padre: secInv },
+    { codigo: 'ROTACION_INV',  descripcion: 'Rotación ABC',        url: '/dashboard/rotacion-inventario',      icono: 'AutoGraph',      orden: 10, padre: secInv },
+    // ── Compras
+    { codigo: 'PROVEEDORES',   descripcion: 'Proveedores',         url: '/dashboard/proveedores',    icono: 'LocalShipping', orden: 1, padre: secCompras },
+    { codigo: 'ORDENES_OC',    descripcion: 'Órdenes a Prov.',     url: '/dashboard/ordenes-compra', icono: 'Assignment',    orden: 2, padre: secCompras },
+    { codigo: 'COMPRAS',       descripcion: 'Compras (facturas)',  url: '/dashboard/compras',        icono: 'Receipt',       orden: 3, padre: secCompras },
+    // ── Ventas
+    { codigo: 'CLIENTES',      descripcion: 'Clientes',            url: '/dashboard/clientes', icono: 'Groups',       orden: 1, padre: secVentas },
+    { codigo: 'VENTAS',        descripcion: 'Ventas',              url: '/dashboard/ventas',   icono: 'ReceiptLong',  orden: 2, padre: secVentas },
+    { codigo: 'CAJAS',         descripcion: 'Cajas',               url: '/dashboard/cajas',    icono: 'PointOfSale',  orden: 3, padre: secVentas },
+    // ── Análisis
+    { codigo: 'REPORTES',      descripcion: 'Reportes',            url: '/dashboard/reportes', icono: 'BarChart',     orden: 1, padre: secAnalisis },
+    // ── Seguridad
+    { codigo: 'SEC_USUARIOS',  descripcion: 'Usuarios',            url: '/dashboard/seguridad/usuarios', icono: 'ManageAccounts',      orden: 1, padre: secSeguridad },
+    { codigo: 'SEC_ROLES',     descripcion: 'Roles',               url: '/dashboard/seguridad/roles',    icono: 'AdminPanelSettings',  orden: 2, padre: secSeguridad },
+    { codigo: 'SEC_MENUS',     descripcion: 'Menús',               url: '/dashboard/seguridad/menus',    icono: 'MenuBook',            orden: 3, padre: secSeguridad },
+  ];
+
+  for (const { padre, ...h } of hijos) {
+    await db.menu.upsert({
+      where:  { codigo: h.codigo },
+      update: { descripcion: h.descripcion, url: h.url, icono: h.icono, orden: h.orden, menuPadreId: padre?.id ?? null },
+      create: { ...h, menuPadreId: padre?.id ?? null },
+    });
+  }
+  console.log('✔ Menús creados con jerarquía padre-hijo');
+
+  // ── Asignar menús a roles ────────────────────────────────────────
   for (const [codigoRol, codigosMenu] of Object.entries(menusPorRol)) {
     const rol = await db.rol.findUnique({ where: { codigo: codigoRol } });
     if (!rol) continue;

@@ -4,6 +4,7 @@ export type CompraItem = {
   id: string;
   compraId: string;
   productoId: string;
+  descripcion: string;
   cantidad: number;
   costoUnitario: number;
   subtotal: number;
@@ -13,6 +14,7 @@ export type Compra = {
   id: string;
   numero: string;
   proveedorId: string;
+  proveedorNombre: string;
   usuarioId: string;
   tipoPagoId: string | null;
   items: CompraItem[];

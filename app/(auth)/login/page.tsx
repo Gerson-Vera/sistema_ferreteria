@@ -77,7 +77,7 @@ export default function LoginPage() {
             <Logo width={380} height={164} />
           </Box>
 
-          <Typography variant="h4" fontWeight={700} gutterBottom>
+          <Typography variant="h4" sx={{ fontWeight: 700 }} gutterBottom>
             Bienvenido
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
@@ -190,7 +190,7 @@ export default function LoginPage() {
 
         {/* Texto */}
         <Box sx={{ textAlign: 'center', zIndex: 1 }}>
-          <Typography variant="h5" fontWeight={700} color="white" gutterBottom>
+          <Typography variant="h5" sx={{ fontWeight: 700 }} color="white" gutterBottom>
             Sistema de Gestión
           </Typography>
           <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)', maxWidth: 340 }}>

@@ -36,9 +36,13 @@ const PAGE_META: Record<string, { title: string; section?: string }> = {
   '/dashboard/unidades-medida':    { title: 'Unidades de Medida',   section: 'Inventario' },
   '/dashboard/almacenes':          { title: 'Almacenes',            section: 'Inventario' },
   '/dashboard/movimientos':        { title: 'Movimientos',          section: 'Inventario' },
-  '/dashboard/ajustes-inventario': { title: 'Ajustes de Inventario',section: 'Inventario' },
-  '/dashboard/proveedores':        { title: 'Proveedores',          section: 'Compras'    },
-  '/dashboard/compras':            { title: 'Órdenes de Compra',    section: 'Compras'    },
+  '/dashboard/ajustes-inventario':          { title: 'Ajustes de Inventario',     section: 'Inventario' },
+  '/dashboard/control-stock':               { title: 'Control de Stock',           section: 'Inventario' },
+  '/dashboard/planificacion-inventario':    { title: 'Planificación de Inventario',section: 'Inventario' },
+  '/dashboard/rotacion-inventario':         { title: 'Rotación de Inventario',     section: 'Inventario' },
+  '/dashboard/proveedores':        { title: 'Proveedores',              section: 'Compras' },
+  '/dashboard/ordenes-compra':     { title: 'Órdenes a Proveedor',      section: 'Compras' },
+  '/dashboard/compras':            { title: 'Compras (Facturas)',        section: 'Compras' },
   '/dashboard/clientes':           { title: 'Clientes',             section: 'Ventas'     },
   '/dashboard/ventas':             { title: 'Ventas',               section: 'Ventas'     },
   '/dashboard/cajas':              { title: 'Cajas',                section: 'Ventas'     },
@@ -97,7 +101,7 @@ export default function Navbar() {
         width: `calc(100% - ${sidebarWidth}px)`,
         ml: `${sidebarWidth}px`,
         bgcolor: '#FFFFFF',
-        borderBottom: '1px solid #E2E8F0',
+        borderBottom: '1px solid rgba(44,62,80,0.1)',
         color: 'text.primary',
         transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1), margin-left 0.22s cubic-bezier(0.4,0,0.2,1)',
         zIndex: theme => theme.zIndex.drawer - 1,
@@ -112,13 +116,13 @@ export default function Navbar() {
             size="small"
             onClick={toggle}
             sx={{
-              color: '#64748B',
-              border: '1px solid #E2E8F0',
+              color: '#2C3E50',
+              border: '1px solid rgba(44,62,80,0.15)',
               borderRadius: '8px',
               width: 34,
               height: 34,
               flexShrink: 0,
-              '&:hover': { bgcolor: '#F1F5F9', borderColor: '#CBD5E1' },
+              '&:hover': { bgcolor: '#ECF0F1', borderColor: '#95A5A6' },
             }}
           >
             <MenuIcon sx={{ fontSize: 18 }} />
@@ -153,7 +157,7 @@ export default function Navbar() {
               fontWeight: 700,
               fontSize: 17,
               lineHeight: 1.2,
-              color: '#1a2035',
+              color: '#2C3E50',
               mt: 0.25,
               display: { xs: 'none', sm: 'block' },
             }}
@@ -173,10 +177,10 @@ export default function Navbar() {
               sx={{
                 width: 38,
                 height: 38,
-                border: '1px solid rgba(0,0,0,0.09)',
+                border: '1px solid rgba(44,62,80,0.12)',
                 borderRadius: '10px',
-                color: 'text.secondary',
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
+                color: '#2C3E50',
+                '&:hover': { bgcolor: '#ECF0F1' },
               }}
             >
               <Badge
@@ -204,16 +208,16 @@ export default function Navbar() {
                 borderRadius: '10px',
                 px: 1,
                 py: 0.5,
-                border: '1px solid rgba(0,0,0,0.09)',
+                border: '1px solid rgba(44,62,80,0.12)',
                 transition: 'background-color 0.15s',
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
+                '&:hover': { bgcolor: '#ECF0F1' },
               }}
             >
               <Avatar
                 sx={{
                   width: 30,
                   height: 30,
-                  background: 'linear-gradient(135deg, #F57C00 0%, #BF360C 100%)',
+                  background: 'linear-gradient(135deg, #F39C12 0%, #D68910 100%)',
                   fontSize: 12,
                   fontWeight: 700,
                 }}
@@ -221,7 +225,7 @@ export default function Navbar() {
                 {initials}
               </Avatar>
               <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-                <Typography sx={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.2, color: '#1a2035' }}>
+                <Typography sx={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.2, color: '#2C3E50' }}>
                   {nombre || 'Usuario'}
                 </Typography>
                 {username && (
@@ -264,11 +268,11 @@ export default function Navbar() {
             alignItems: 'center',
             justifyContent: 'space-between',
             borderBottom: '1px solid rgba(0,0,0,0.07)',
-            bgcolor: '#FAFBFC',
+            bgcolor: '#F4F6F7',
           }}
         >
           <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1a2035' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#2C3E50' }}>
               Alertas de Stock
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -303,7 +307,7 @@ export default function Navbar() {
                   alignItems: 'center',
                   gap: 1.5,
                   borderBottom: i < stockProductos.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
-                  '&:hover': { bgcolor: '#FAFBFC' },
+                  '&:hover': { bgcolor: '#F4F6F7' },
                 }}
               >
                 <Box
@@ -311,14 +315,14 @@ export default function Navbar() {
                     width: 32,
                     height: 32,
                     borderRadius: '8px',
-                    bgcolor: 'rgba(245,158,11,0.1)',
+                    bgcolor: 'rgba(243,156,18,0.12)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
                   }}
                 >
-                  <WarningAmberIcon sx={{ fontSize: 17, color: '#F59E0B' }} />
+                  <WarningAmberIcon sx={{ fontSize: 17, color: '#F39C12' }} />
                 </Box>
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Typography variant="body2" noWrap sx={{ fontWeight: 600, fontSize: 13 }}>
@@ -375,13 +379,13 @@ export default function Navbar() {
           },
         }}
       >
-        <Box sx={{ px: 2.5, py: 2, bgcolor: '#FAFBFC', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
+        <Box sx={{ px: 2.5, py: 2, bgcolor: '#F4F6F7', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Avatar
               sx={{
                 width: 42,
                 height: 42,
-                background: 'linear-gradient(135deg, #F57C00 0%, #BF360C 100%)',
+                background: 'linear-gradient(135deg, #F39C12 0%, #D68910 100%)',
                 fontSize: 16,
                 fontWeight: 700,
               }}
@@ -389,7 +393,7 @@ export default function Navbar() {
               {initials}
             </Avatar>
             <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#1a2035' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#2C3E50' }}>
                 {nombre || 'Usuario'}
               </Typography>
               {username && (

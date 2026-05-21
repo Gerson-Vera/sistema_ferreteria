@@ -20,7 +20,11 @@ import Alert from '@mui/material/Alert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import InputAdornment from '@mui/material/InputAdornment';
+import Tooltip from '@mui/material/Tooltip';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import { generateInvoiceCode } from '@/lib/helpers/invoice';
 import { useToast } from '@/shared/context/ToastContext';
 import { proveedoresClientService } from '@/modules/proveedores/services/proveedores.client';
 import { productosClientService } from '@/modules/productos/services/productos.client';
@@ -46,7 +50,7 @@ export default function NuevaCompraPage() {
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [items, setItems] = useState<LineItem[]>([]);
-  const [numeroFactura, setNumeroFactura] = useState('');
+  const [numeroFactura, setNumeroFactura] = useState(() => generateInvoiceCode());
   const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,11 +145,24 @@ export default function NuevaCompraPage() {
               sx={{ flex: 1, maxWidth: 480 }}
             />
             <TextField
-              label="N° Factura (opcional)"
+              label="N° Factura"
               value={numeroFactura}
               onChange={e => setNumeroFactura(e.target.value)}
               size="small"
-              sx={{ maxWidth: 200 }}
+              sx={{ maxWidth: 260 }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title="Generar nuevo código">
+                        <IconButton size="small" onClick={() => setNumeroFactura(generateInvoiceCode())} edge="end">
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
           </Stack>
         </Paper>

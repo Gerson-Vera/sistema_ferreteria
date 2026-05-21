@@ -9,6 +9,8 @@ export const createProductoSchema = z.object({
   precioVenta: z.number().positive('Precio de venta debe ser mayor a 0'),
   stock: z.number().int().min(0, 'Stock no puede ser negativo'),
   stockMinimo: z.number().int().min(0, 'Stock mínimo no puede ser negativo'),
+  stockMaximo: z.number().int().min(0).optional(),
+  puntoReorden: z.number().int().min(0).optional(),
   ubicacion: z.string().max(200).optional(),
   categoriaId: z.string().min(1, 'Categoría requerida'),
   marcaId: z.string().min(1).optional(),
@@ -25,6 +27,7 @@ export const queryProductoSchema = z.object({
   search: z.string().optional(),
   categoriaId: z.string().min(1).optional(),
   almacenId: z.string().min(1).optional(),
+  proveedorId: z.string().min(1).optional(),
   codigoBarras: z.string().optional(),
   activo: z.preprocess(
     v => v === 'true' ? true : v === 'false' ? false : undefined,

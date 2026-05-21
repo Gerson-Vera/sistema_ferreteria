@@ -17,9 +17,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
-    const { accion } = await req.json() as { accion: 'recibir' | 'anular' };
-    if (accion === 'recibir') return ok(await comprasService.recibir(id));
-    if (accion === 'anular') return ok(await comprasService.anular(id));
+    const body = await req.json() as { accion: 'recibir' | 'anular'; itemsRecibidos?: string[] };
+    if (body.accion === 'recibir') {
+      const itemIds = body.itemsRecibidos?.map(Number);
+      return ok(await comprasService.recibir(id, itemIds));
+    }
+    if (body.accion === 'anular') return ok(await comprasService.anular(id));
     return badRequest('Acción inválida. Use "recibir" o "anular"');
   } catch (error) {
     if (error instanceof AppError) {

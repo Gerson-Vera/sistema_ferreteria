@@ -16,6 +16,8 @@ type ProductoRow = {
   precioVenta: DecimalLike;
   stock: number;
   stockMinimo: number;
+  stockMaximo: number;
+  puntoReorden: number;
   ubicacion: string | null;
   categoriaId: number;
   marcaId: number | null;
@@ -39,6 +41,8 @@ function toDto(row: ProductoRow): Producto {
     precioVenta: Number(row.precioVenta),
     stock: row.stock,
     stockMinimo: row.stockMinimo,
+    stockMaximo: row.stockMaximo,
+    puntoReorden: row.puntoReorden,
     ubicacion: row.ubicacion,
     categoriaId: String(row.categoriaId),
     marcaId: row.marcaId ? String(row.marcaId) : null,
@@ -90,7 +94,7 @@ async function uniqueEan13(): Promise<string> {
 
 export const productosRepository = {
   async findMany(
-    params: QueryParams & { categoriaId?: string; almacenId?: string; codigoBarras?: string; activo?: boolean }
+    params: QueryParams & { categoriaId?: string; almacenId?: string; proveedorId?: string; codigoBarras?: string; activo?: boolean }
   ): Promise<PaginatedResponse<Producto>> {
     const page = params.page ?? 1;
     const limit = params.limit ?? 20;
@@ -100,6 +104,7 @@ export const productosRepository = {
       OR?: { descripcion?: object; codigo?: object; codigoBarras?: object }[];
       categoriaId?: number;
       almacenId?: number;
+      proveedorId?: number;
       codigoBarras?: object;
       estado?: boolean;
     } = {};
@@ -116,6 +121,9 @@ export const productosRepository = {
     }
     if (params.almacenId) {
       where.almacenId = parseInt(params.almacenId);
+    }
+    if (params.proveedorId) {
+      where.proveedorId = parseInt(params.proveedorId);
     }
     if (params.codigoBarras) {
       where.codigoBarras = { equals: params.codigoBarras };
@@ -171,6 +179,8 @@ export const productosRepository = {
         precioVenta: data.precioVenta,
         stock: data.stock,
         stockMinimo: data.stockMinimo,
+        stockMaximo: data.stockMaximo ?? 0,
+        puntoReorden: data.puntoReorden ?? 0,
         ubicacion: data.ubicacion ?? null,
         categoria: { connect: { id: parseInt(data.categoriaId) } },
         ...(data.marcaId
@@ -202,6 +212,8 @@ export const productosRepository = {
         ...(data.precioVenta !== undefined && { precioVenta: data.precioVenta }),
         ...(data.stock !== undefined && { stock: data.stock }),
         ...(data.stockMinimo !== undefined && { stockMinimo: data.stockMinimo }),
+        ...(data.stockMaximo !== undefined && { stockMaximo: data.stockMaximo }),
+        ...(data.puntoReorden !== undefined && { puntoReorden: data.puntoReorden }),
         ...(data.ubicacion !== undefined && { ubicacion: data.ubicacion || null }),
         ...(data.categoriaId !== undefined && {
           categoria: { connect: { id: parseInt(data.categoriaId) } },

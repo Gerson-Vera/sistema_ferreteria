@@ -50,6 +50,8 @@ type FormState = {
   precioVenta: string;
   stock: string;
   stockMinimo: string;
+  stockMaximo: string;
+  puntoReorden: string;
 };
 
 const emptyForm: FormState = {
@@ -67,6 +69,8 @@ const emptyForm: FormState = {
   precioVenta: '',
   stock: '0',
   stockMinimo: '0',
+  stockMaximo: '0',
+  puntoReorden: '0',
 };
 
 type Props = {
@@ -119,6 +123,8 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
               precioVenta: String(initialData.precioVenta),
               stock: String(initialData.stock),
               stockMinimo: String(initialData.stockMinimo),
+              stockMaximo: String(initialData.stockMaximo),
+              puntoReorden: String(initialData.puntoReorden),
             }
           : emptyForm,
       );
@@ -218,6 +224,8 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
   const pv = parseFloat(form.precioVenta);
   const st = parseInt(form.stock, 10);
   const sm = parseInt(form.stockMinimo, 10);
+  const smx = parseInt(form.stockMaximo, 10);
+  const pr = parseInt(form.puntoReorden, 10);
 
   const precioWarning = !isNaN(pc) && !isNaN(pv) && pc >= pv
     ? 'El precio de compra es mayor o igual al precio de venta — revisa el margen.'
@@ -235,6 +243,8 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
     if (isNaN(pv) || pv <= 0) e.precioVenta = 'Debe ser mayor a 0';
     if (isNaN(st) || st < 0) e.stock = 'Debe ser ≥ 0';
     if (isNaN(sm) || sm < 0) e.stockMinimo = 'Debe ser ≥ 0';
+    if (isNaN(smx) || smx < 0) e.stockMaximo = 'Debe ser ≥ 0';
+    if (isNaN(pr) || pr < 0) e.puntoReorden = 'Debe ser ≥ 0';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -256,6 +266,8 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
       precioVenta: pv,
       stock: st,
       stockMinimo: sm,
+      stockMaximo: smx,
+      puntoReorden: pr,
     });
   };
 
@@ -491,6 +503,32 @@ export default function ProductoFormDialog({ open, onClose, onSubmit, initialDat
               onChange={set('stockMinimo')}
               error={!!errors.stockMinimo}
               helperText={errors.stockMinimo ?? 'Alerta cuando el stock llegue a este nivel'}
+              disabled={disabled}
+              slotProps={{ htmlInput: { min: 0 } }}
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              label="Stock Máximo"
+              fullWidth
+              type="number"
+              value={form.stockMaximo}
+              onChange={set('stockMaximo')}
+              error={!!errors.stockMaximo}
+              helperText={errors.stockMaximo ?? 'Cantidad máxima a mantener en almacén'}
+              disabled={disabled}
+              slotProps={{ htmlInput: { min: 0 } }}
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              label="Punto de Reorden"
+              fullWidth
+              type="number"
+              value={form.puntoReorden}
+              onChange={set('puntoReorden')}
+              error={!!errors.puntoReorden}
+              helperText={errors.puntoReorden ?? 'Nivel para generar sugerencia de compra'}
               disabled={disabled}
               slotProps={{ htmlInput: { min: 0 } }}
             />

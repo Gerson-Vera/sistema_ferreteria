@@ -9,6 +9,7 @@ type GetAllParams = {
   search?: string;
   categoriaId?: string;
   almacenId?: string;
+  proveedorId?: string;
   activo?: boolean;
 };
 
@@ -20,6 +21,7 @@ export const productosClientService = {
     if (params?.search) sp.set('search', params.search);
     if (params?.categoriaId) sp.set('categoriaId', params.categoriaId);
     if (params?.almacenId) sp.set('almacenId', params.almacenId);
+    if (params?.proveedorId) sp.set('proveedorId', params.proveedorId);
     if (params?.activo !== undefined) sp.set('activo', String(params.activo));
     const query = sp.toString();
     const res = await fetch(`${BASE}${query ? '?' + query : ''}`);

@@ -27,6 +27,14 @@ export function conflict(error: string) {
   return NextResponse.json<ApiError>({ error }, { status: 409 });
 }
 
+export function unauthorized(error = 'No autenticado') {
+  return NextResponse.json<ApiError>({ error }, { status: 401 });
+}
+
+export function forbidden(error = 'Acceso denegado') {
+  return NextResponse.json<ApiError>({ error }, { status: 403 });
+}
+
 export function serverError(error: unknown) {
   console.error('[API Error]', error);
   return NextResponse.json<ApiError>({ error: 'Error interno del servidor' }, { status: 500 });

@@ -21,7 +21,20 @@
       "Bash(node -e \"require\\('recharts'\\); console.log\\('recharts ok'\\)\")",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Recurse -Directory)",
       "Bash(Select-Object -First 50)",
-      "Bash(Format-Table FullName)"
+      "Bash(Format-Table FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Force)",
+      "Bash(Select-Object Name, FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Depth 0 | Select-Object Name; Write-Host \"---\"; Get-ChildItem \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\\\\src\" -Depth 2 | Where-Object { $_.PSIsContainer } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\\\\app\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object)",
+      "PowerShell(cd \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\"; npx tsc --noEmit 2>&1 | Select-String \"error TS\" | Where-Object { $_ -notmatch \"login\" } | Select-Object -First 40)",
+      "PowerShell(cd \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\"; $out = npx tsc --noEmit 2>&1; $out | Select-String \"\\\\.tsx?\\\\\\(\\\\d+\" | Where-Object { $_ -notmatch \"login\" } | Select-Object -First 40)",
+      "PowerShell(cd \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\"; npx tsc --noEmit 2>&1 | Out-String | Select-String -Pattern \"error TS\\\\d+\" -AllMatches | ForEach-Object { $_.Matches.Count })",
+      "PowerShell(cd \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\"; npx tsc --noEmit 2>&1 | Select-String \"error TS\" | Where-Object { $_ -notmatch \"login\" } | Select-Object -First 30)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\" -Recurse -Filter \"roleConfig.ts\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}; [print\\(k,v\\) for k,v in deps.items\\(\\) if any\\(x in k for x in ['xlsx','exceljs','excel','sheet']\\)]\")",
+      "PowerShell(cd \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\"; $pkg = Get-Content package.json | ConvertFrom-Json; $deps = @{}; $pkg.dependencies.PSObject.Properties | ForEach-Object { $deps[$_.Name] = $_.Value }; $pkg.devDependencies.PSObject.Properties | ForEach-Object { $deps[$_.Name] = $_.Value }; $deps.Keys | Where-Object { $_ -match 'xlsx|excel|sheet' })",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\gvera\\\\Desktop\\\\sistema_ferreteria\\\\sistema_ferreteria\\\\app\\\\dashboard\" -Recurse -Filter \"page.tsx\")"
     ]
   }
 }

@@ -8,6 +8,7 @@ import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { useToast } from '@/shared/context/ToastContext';
 import ComprasTable from '@/modules/compras/components/ComprasTable';
+import CompraRecibirDialog from '@/modules/compras/components/CompraRecibirDialog';
 import { useCompras } from '@/modules/compras/hooks/useCompras';
 import type { Compra } from '@/modules/compras/types';
 
@@ -16,16 +17,21 @@ export default function ComprasPage() {
   const { result, page, limit, filters, loading, error, setPage, setLimit, setFilters, recibir, anular } = useCompras();
   const showToast = useToast();
 
+  const [verTarget, setVerTarget] = useState<Compra | null>(null);
   const [recibirTarget, setRecibirTarget] = useState<Compra | null>(null);
   const [anularTarget, setAnularTarget] = useState<Compra | null>(null);
   const [procesando, setProcesando] = useState(false);
 
-  const handleRecibir = async () => {
-    if (!recibirTarget) return;
+  const handleRecibir = async (compraId: string, itemsRecibidos: string[]) => {
     setProcesando(true);
     try {
-      await recibir(recibirTarget.id);
-      showToast('Compra marcada como recibida', 'success');
+      await recibir(compraId, itemsRecibidos);
+      showToast(
+        itemsRecibidos.length === recibirTarget?.items.length
+          ? 'Compra marcada como recibida'
+          : `Recepción parcial registrada (${itemsRecibidos.length} de ${recibirTarget?.items.length} productos)`,
+        'success',
+      );
       setRecibirTarget(null);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Error al recibir compra', 'error');
@@ -76,18 +82,27 @@ export default function ComprasPage() {
         onEstadoChange={e => setFilters({ ...filters, estado: e || undefined })}
         onPageChange={setPage}
         onLimitChange={setLimit}
+        onVer={setVerTarget}
         onRecibir={setRecibirTarget}
         onAnular={setAnularTarget}
       />
 
-      <ConfirmDialog
+      {/* Modal: ver detalle (solo lectura) */}
+      <CompraRecibirDialog
+        open={!!verTarget}
+        compra={verTarget}
+        mode="ver"
+        onClose={() => setVerTarget(null)}
+      />
+
+      {/* Modal: verificar y confirmar recepción con checklist */}
+      <CompraRecibirDialog
         open={!!recibirTarget}
-        title="Confirmar recepción"
-        message={`¿Confirmas que recibiste la compra "${recibirTarget?.numero}"?`}
+        compra={recibirTarget}
+        mode="recibir"
+        loading={procesando}
         onConfirm={handleRecibir}
         onClose={() => setRecibirTarget(null)}
-        loading={procesando}
-        confirmLabel="Confirmar"
       />
 
       <ConfirmDialog

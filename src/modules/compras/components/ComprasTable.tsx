@@ -21,6 +21,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import type { Compra, EstadoCompra } from '../types';
 
 const estadoColor: Record<EstadoCompra, 'warning' | 'success' | 'error'> = {
@@ -45,6 +46,7 @@ type Props = {
   onEstadoChange: (e: string) => void;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
+  onVer: (c: Compra) => void;
   onRecibir: (c: Compra) => void;
   onAnular: (c: Compra) => void;
 };
@@ -61,6 +63,7 @@ export default function ComprasTable({
   onEstadoChange,
   onPageChange,
   onLimitChange,
+  onVer,
   onRecibir,
   onAnular,
 }: Props) {
@@ -120,12 +123,10 @@ export default function ComprasTable({
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                      {c.proveedorId.slice(0, 8)}…
-                    </Typography>
+                    <Typography variant="body2">{c.proveedorNombre}</Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                       {c.numeroFactura ?? '—'}
                     </Typography>
                   </TableCell>
@@ -154,6 +155,11 @@ export default function ComprasTable({
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
+                    <Tooltip title="Ver detalle">
+                      <IconButton size="small" color="primary" onClick={() => onVer(c)}>
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     {c.estado === 'pendiente' && (
                       <Tooltip title="Marcar recibida">
                         <IconButton size="small" color="success" onClick={() => onRecibir(c)}>

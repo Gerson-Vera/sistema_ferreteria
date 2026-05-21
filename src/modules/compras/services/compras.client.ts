@@ -42,11 +42,11 @@ export const comprasClientService = {
     return json.data as Compra;
   },
 
-  async recibir(id: string): Promise<Compra> {
+  async recibir(id: string, itemsRecibidos?: string[]): Promise<Compra> {
     const res = await fetch(`${BASE}/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'recibir' }),
+      body: JSON.stringify({ accion: 'recibir', itemsRecibidos }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

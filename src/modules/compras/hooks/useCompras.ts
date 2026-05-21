@@ -39,8 +39,8 @@ export function useCompras() {
   const setLimit = useCallback((l: number) => { setLimitState(l); setPageState(1); }, []);
   const setFilters = useCallback((f: Filters) => { setFiltersState(f); setPageState(1); }, []);
 
-  const recibir = async (id: string): Promise<void> => {
-    await comprasClientService.recibir(id);
+  const recibir = async (id: string, itemsRecibidos?: string[]): Promise<void> => {
+    await comprasClientService.recibir(id, itemsRecibidos);
     await load();
   };
 

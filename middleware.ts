@@ -5,14 +5,14 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { nextUrl, auth: session } = req;
+  const pathname  = nextUrl.pathname;
   const isLoggedIn = !!session?.user;
-  const isDashboard = nextUrl.pathname.startsWith('/dashboard');
 
-  if (isDashboard && !isLoggedIn) {
+  if (pathname.startsWith('/dashboard') && !isLoggedIn) {
     return Response.redirect(new URL('/login', nextUrl));
   }
 
-  if (!isDashboard && isLoggedIn && nextUrl.pathname === '/login') {
+  if (pathname === '/login' && isLoggedIn) {
     return Response.redirect(new URL('/dashboard', nextUrl));
   }
 });

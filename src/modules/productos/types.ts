@@ -9,6 +9,8 @@ export type Producto = {
   precioVenta: number;
   stock: number;
   stockMinimo: number;
+  stockMaximo: number;
+  puntoReorden: number;
   ubicacion: string | null;
   categoriaId: string;
   marcaId: string | null;
@@ -29,6 +31,8 @@ export type CreateProductoDto = {
   precioVenta: number;
   stock: number;
   stockMinimo: number;
+  stockMaximo?: number;
+  puntoReorden?: number;
   ubicacion?: string;
   categoriaId: string;
   marcaId?: string;

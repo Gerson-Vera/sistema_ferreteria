@@ -4,7 +4,7 @@ import type { CreateProductoDto, UpdateProductoDto } from '../types';
 import type { QueryParams } from '@/shared/types';
 
 export const productosService = {
-  async getAll(params: QueryParams & { categoriaId?: string; almacenId?: string; activo?: boolean }) {
+  async getAll(params: QueryParams & { categoriaId?: string; almacenId?: string; proveedorId?: string; activo?: boolean }) {
     return productosRepository.findMany(params);
   },
 

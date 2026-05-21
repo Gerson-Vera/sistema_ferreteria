@@ -10,6 +10,7 @@ type CompraItemRow = {
   cantidad: number;
   costoUnitario: unknown;
   subtotal: unknown;
+  producto: { descripcion: string };
 };
 
 type CompraRow = {
@@ -27,6 +28,7 @@ type CompraRow = {
   creadoEn: Date;
   actualizadoEn: Date;
   lista: CompraItemRow[];
+  proveedor: { descripcion: string };
 };
 
 function itemToDto(row: CompraItemRow): CompraItem {
@@ -34,6 +36,7 @@ function itemToDto(row: CompraItemRow): CompraItem {
     id: String(row.id),
     compraId: String(row.compraId),
     productoId: String(row.productoId),
+    descripcion: row.producto.descripcion,
     cantidad: row.cantidad,
     costoUnitario: Number(row.costoUnitario),
     subtotal: Number(row.subtotal),
@@ -45,6 +48,7 @@ function toDto(row: CompraRow): Compra {
     id: String(row.id),
     numero: row.numero,
     proveedorId: String(row.proveedorId),
+    proveedorNombre: row.proveedor.descripcion,
     usuarioId: String(row.usuarioId),
     tipoPagoId: row.tipoPagoId !== null ? String(row.tipoPagoId) : null,
     items: row.lista.map(itemToDto),
@@ -59,7 +63,10 @@ function toDto(row: CompraRow): Compra {
   };
 }
 
-const includeItems = { lista: true };
+const includeItems = {
+  lista: { include: { producto: { select: { descripcion: true } } } },
+  proveedor: { select: { descripcion: true } },
+};
 
 export const comprasRepository = {
   async findMany(params: QueryCompraInput): Promise<PaginatedResponse<Compra>> {
@@ -83,7 +90,7 @@ export const comprasRepository = {
     ]);
 
     return {
-      data: rows.map(toDto),
+      data: (rows as unknown as CompraRow[]).map(toDto),
       total,
       page,
       limit,
@@ -93,7 +100,7 @@ export const comprasRepository = {
 
   async findById(id: string): Promise<Compra | null> {
     const row = await db.compra.findUnique({ where: { id: parseInt(id) }, include: includeItems });
-    return row ? toDto(row) : null;
+    return row ? toDto(row as unknown as CompraRow) : null;
   },
 
   async create(data: CreateCompraDto, numero: string, usuarioId: number): Promise<Compra> {
@@ -123,15 +130,20 @@ export const comprasRepository = {
       },
       include: includeItems,
     });
-    return toDto(row);
+    return toDto(row as unknown as CompraRow);
   },
 
-  async recibir(id: string): Promise<Compra> {
+  async recibir(id: string, itemIds?: number[]): Promise<Compra> {
     const row = await db.$transaction(async tx => {
       const compra = await tx.compra.findUnique({ where: { id: parseInt(id) }, include: includeItems });
       if (!compra) throw new Error('Compra no encontrada');
 
-      for (const item of compra.lista) {
+      const compraRow = compra as unknown as CompraRow;
+      const itemsToProcess = itemIds?.length
+        ? compraRow.lista.filter(i => itemIds.includes(i.id))
+        : compraRow.lista;
+
+      for (const item of itemsToProcess) {
         const producto = await tx.producto.findUnique({
           where: { id: item.productoId },
           select: { stock: true },
@@ -149,10 +161,10 @@ export const comprasRepository = {
             cantidad: item.cantidad,
             stockAnterior,
             stockNuevo,
-            referenciaId: compra.id,
+            referenciaId: compraRow.id,
             referenciaTipo: 'Compra',
-            observacion: `Compra ${compra.numero}`,
-            usuarioId: compra.usuarioId,
+            observacion: `Compra ${compraRow.numero}`,
+            usuarioId: compraRow.usuarioId,
           },
         });
       }
@@ -163,7 +175,7 @@ export const comprasRepository = {
         include: includeItems,
       });
     });
-    return toDto(row);
+    return toDto(row as unknown as CompraRow);
   },
 
   async anular(id: string): Promise<Compra> {
@@ -172,6 +184,6 @@ export const comprasRepository = {
       data: { estado: 'anulada' },
       include: includeItems,
     });
-    return toDto(row);
+    return toDto(row as unknown as CompraRow);
   },
 };

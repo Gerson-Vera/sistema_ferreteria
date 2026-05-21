@@ -7,3 +7,7 @@ html, body {
   padding: 0;
   height: 100%;
 }
+
+code, pre, kbd, samp {
+  font-family: var(--font-jetbrains-mono, 'JetBrains Mono', 'Courier New', monospace);
+}
