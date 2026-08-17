@@ -14,8 +14,15 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import { productosClientService } from '@/modules/productos/services/productos.client';
+import { almacenesClientService } from '@/modules/almacenes/services/almacenes.client';
+import { stockAlmacenesClientService } from '@/modules/stock-almacenes/services/stock-almacenes.client';
 import type { Producto } from '@/modules/productos/types';
+import type { Almacen } from '@/modules/almacenes/types';
 import type { CreateAjusteInventarioDto } from '../types';
 
 type ItemDraft = {
@@ -39,6 +46,9 @@ export default function AjusteInventarioFormDialog({ open, onClose, onSubmit, lo
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
+  const [almacenId, setAlmacenId] = useState('');
+  const [stockAlmacen, setStockAlmacen] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setLoadingProductos(true);
@@ -46,7 +56,25 @@ export default function AjusteInventarioFormDialog({ open, onClose, onSubmit, lo
       .then(r => setProductos(r.data))
       .catch(() => {})
       .finally(() => setLoadingProductos(false));
+    almacenesClientService.getAll(true).then(a => {
+      setAlmacenes(a);
+      if (a.length > 0) setAlmacenId(prev => prev || a[0].id);
+    }).catch(() => {});
   }, []);
+
+  // Stock actual por producto en el almacén seleccionado
+  useEffect(() => {
+    if (!almacenId) { setStockAlmacen({}); return; }
+    stockAlmacenesClientService.getAll({ almacenId, limit: 1000 })
+      .then(r => {
+        const map: Record<string, number> = {};
+        for (const s of r.data) map[s.productoId] = s.stock;
+        setStockAlmacen(map);
+      })
+      .catch(() => setStockAlmacen({}));
+  }, [almacenId]);
+
+  const stockDe = (productoId: string) => stockAlmacen[productoId] ?? 0;
 
   const handleClose = () => {
     setMotivo('');
@@ -74,6 +102,7 @@ export default function AjusteInventarioFormDialog({ open, onClose, onSubmit, lo
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!motivo.trim()) errs.motivo = 'Motivo requerido';
+    if (!almacenId) errs.almacenId = 'Almacén requerido';
     items.forEach((it, i) => {
       if (!it.producto) errs[`pid_${i}`] = 'Selecciona un producto';
       const sf = Number(it.stockFisico);
@@ -87,6 +116,7 @@ export default function AjusteInventarioFormDialog({ open, onClose, onSubmit, lo
     if (!validate()) return;
     await onSubmit({
       motivo: motivo.trim(),
+      almacenId,
       observaciones: observaciones.trim() || undefined,
       items: items.map(it => ({
         productoId: it.producto!.id,
@@ -101,16 +131,31 @@ export default function AjusteInventarioFormDialog({ open, onClose, onSubmit, lo
       <DialogTitle>Nuevo Ajuste de Inventario</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            label="Motivo"
-            value={motivo}
-            onChange={e => setMotivo(e.target.value)}
-            error={!!errors.motivo}
-            helperText={errors.motivo}
-            fullWidth
-            size="small"
-            disabled={loading}
-          />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="Motivo"
+              value={motivo}
+              onChange={e => setMotivo(e.target.value)}
+              error={!!errors.motivo}
+              helperText={errors.motivo}
+              fullWidth
+              size="small"
+              disabled={loading}
+            />
+            <FormControl size="small" sx={{ minWidth: 200 }} error={!!errors.almacenId}>
+              <InputLabel>Almacén</InputLabel>
+              <Select
+                value={almacenId}
+                label="Almacén"
+                onChange={e => setAlmacenId(e.target.value)}
+                disabled={loading}
+              >
+                {almacenes.map(a => (
+                  <MenuItem key={a.id} value={a.id}>{a.nombre}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
           <TextField
             label="Observaciones"
             value={observaciones}
@@ -140,7 +185,7 @@ export default function AjusteInventarioFormDialog({ open, onClose, onSubmit, lo
                     <Box>
                       <Typography variant="body2">{p.nombre}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        SKU: {p.sku} · Stock actual: {p.stock}
+                        SKU: {p.sku} · Stock en almacén: {stockDe(p.id)}
                       </Typography>
                     </Box>
                   </Box>
@@ -152,7 +197,7 @@ export default function AjusteInventarioFormDialog({ open, onClose, onSubmit, lo
                     error={!!errors[`pid_${idx}`]}
                     helperText={
                       errors[`pid_${idx}`] ||
-                      (item.producto ? `Stock actual: ${item.producto.stock}` : 'Busca por nombre o SKU')
+                      (item.producto ? `Stock en almacén: ${stockDe(item.producto.id)}` : 'Busca por nombre o SKU')
                     }
                   />
                 )}

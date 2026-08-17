@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { comprasClientService } from '../services/compras.client';
-import type { Compra } from '../types';
+import type { Compra, RecibirCompraItemDto } from '../types';
 import type { PaginatedResponse } from '@/shared/types';
 
 const EMPTY: PaginatedResponse<Compra> = { data: [], total: 0, page: 1, limit: 20, totalPages: 0 };
@@ -39,8 +39,8 @@ export function useCompras() {
   const setLimit = useCallback((l: number) => { setLimitState(l); setPageState(1); }, []);
   const setFilters = useCallback((f: Filters) => { setFiltersState(f); setPageState(1); }, []);
 
-  const recibir = async (id: string, itemsRecibidos?: string[]): Promise<void> => {
-    await comprasClientService.recibir(id, itemsRecibidos);
+  const recibir = async (id: string, items?: RecibirCompraItemDto[]): Promise<void> => {
+    await comprasClientService.recibir(id, items);
     await load();
   };
 

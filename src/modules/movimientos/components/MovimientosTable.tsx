@@ -25,6 +25,10 @@ const tipoLabel: Record<TipoMovimiento, string> = {
   salida_ajuste:   'Salida Ajuste',
   entrada_manual:  'Entrada Manual',
   salida_manual:   'Salida Manual',
+  entrada_transferencia: 'Entrada Transferencia',
+  salida_transferencia:  'Salida Transferencia',
+  entrada_devolucion_venta: 'Devolución Venta',
+  salida_devolucion_compra: 'Devolución Compra',
 };
 
 const tipoColor: Record<TipoMovimiento, 'success' | 'error' | 'info' | 'warning'> = {
@@ -34,7 +38,15 @@ const tipoColor: Record<TipoMovimiento, 'success' | 'error' | 'info' | 'warning'
   salida_ajuste:   'warning',
   entrada_manual:  'success',
   salida_manual:   'error',
+  entrada_transferencia: 'info',
+  salida_transferencia:  'warning',
+  entrada_devolucion_venta: 'success',
+  salida_devolucion_compra: 'error',
 };
+
+const fmtMoneda = (n: number) => n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN' });
+
+type AlmacenOption = { id: string; nombre: string };
 
 type Props = {
   movimientos: MovimientoInventario[];
@@ -43,14 +55,18 @@ type Props = {
   page: number;
   limit: number;
   tipoFilter: string;
+  almacenFilter: string;
+  almacenes: AlmacenOption[];
   onTipoChange: (t: string) => void;
+  onAlmacenChange: (a: string) => void;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
 };
 
 export default function MovimientosTable({
   movimientos, loading, total, page, limit,
-  tipoFilter, onTipoChange, onPageChange, onLimitChange,
+  tipoFilter, almacenFilter, almacenes,
+  onTipoChange, onAlmacenChange, onPageChange, onLimitChange,
 }: Props) {
   return (
     <Box>
@@ -65,6 +81,19 @@ export default function MovimientosTable({
             <MenuItem value="salida_ajuste">Salida Ajuste</MenuItem>
             <MenuItem value="entrada_manual">Entrada Manual</MenuItem>
             <MenuItem value="salida_manual">Salida Manual</MenuItem>
+            <MenuItem value="entrada_transferencia">Entrada Transferencia</MenuItem>
+            <MenuItem value="salida_transferencia">Salida Transferencia</MenuItem>
+            <MenuItem value="entrada_devolucion_venta">Devolución Venta</MenuItem>
+            <MenuItem value="salida_devolucion_compra">Devolución Compra</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Almacén</InputLabel>
+          <Select value={almacenFilter} label="Almacén" onChange={e => onAlmacenChange(e.target.value)}>
+            <MenuItem value="">Todos</MenuItem>
+            {almacenes.map(a => (
+              <MenuItem key={a.id} value={a.id}>{a.nombre}</MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Stack>
@@ -75,8 +104,11 @@ export default function MovimientosTable({
             <TableRow>
               <TableCell>Fecha</TableCell>
               <TableCell>Producto</TableCell>
+              <TableCell>Almacén</TableCell>
               <TableCell align="center">Tipo</TableCell>
               <TableCell align="right">Cantidad</TableCell>
+              <TableCell align="right">Costo Unit.</TableCell>
+              <TableCell align="right">Valor</TableCell>
               <TableCell align="right">Stock Anterior</TableCell>
               <TableCell align="right">Stock Nuevo</TableCell>
               <TableCell>Referencia</TableCell>
@@ -87,14 +119,14 @@ export default function MovimientosTable({
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
+                  {Array.from({ length: 11 }).map((_, j) => (
                     <TableCell key={j}><Skeleton /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : movimientos.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary" variant="body2">
                     No hay movimientos registrados
                   </Typography>
@@ -109,8 +141,13 @@ export default function MovimientosTable({
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                      {m.productoId}
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {m.productoNombre}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {m.almacenNombre ?? '—'}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
@@ -123,6 +160,16 @@ export default function MovimientosTable({
                   <TableCell align="right">
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {m.cantidad}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" color="text.secondary">
+                      {m.costoUnitario !== null ? fmtMoneda(m.costoUnitario) : '—'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">
+                      {m.costoUnitario !== null ? fmtMoneda(m.costoUnitario * m.cantidad) : '—'}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">

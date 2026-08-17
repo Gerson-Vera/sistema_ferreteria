@@ -1,4 +1,6 @@
 ﻿import db from '@/lib/db';
+import { aplicarMovimientoStock, costoPromedioDe } from '@/lib/inventario/stock';
+import { resolverFactorUnidad, aUnidadesBase } from '@/lib/inventario/unidades';
 import type { Venta, VentaItem, EstadoVenta, CreateVentaDto } from '../types';
 import type { PaginatedResponse } from '@/shared/types';
 import type { QueryVentaInput } from '../schemas';
@@ -10,6 +12,9 @@ type VentaItemRow = {
   cantidad: number;
   precioUnitario: unknown;
   subtotal: unknown;
+  unidadMedidaId: number | null;
+  unidadMedida: { codigo: string } | null;
+  factorUnidad: unknown;
 };
 
 type VentaRow = {
@@ -20,6 +25,8 @@ type VentaRow = {
   usuarioId: number;
   usuario: { nombre: string };
   tipoPagoId: number | null;
+  almacenId: number | null;
+  almacen: { nombre: string } | null;
   subtotal: unknown;
   igv: unknown;
   total: unknown;
@@ -38,6 +45,9 @@ function itemToDto(row: VentaItemRow): VentaItem {
     cantidad: row.cantidad,
     precioUnitario: Number(row.precioUnitario),
     subtotal: Number(row.subtotal),
+    unidadMedidaId: row.unidadMedidaId !== null ? String(row.unidadMedidaId) : null,
+    unidadCodigo: row.unidadMedida?.codigo ?? null,
+    factorUnidad: Number(row.factorUnidad),
   };
 }
 
@@ -50,6 +60,8 @@ function toDto(row: VentaRow): Venta {
     usuarioId: String(row.usuarioId),
     usuarioNombre: row.usuario.nombre,
     tipoPagoId: row.tipoPagoId !== null ? String(row.tipoPagoId) : null,
+    almacenId: row.almacenId !== null ? String(row.almacenId) : null,
+    almacenNombre: row.almacen?.nombre ?? null,
     items: row.lista.map(itemToDto),
     subtotal: Number(row.subtotal),
     igv: Number(row.igv),
@@ -62,9 +74,10 @@ function toDto(row: VentaRow): Venta {
 }
 
 const includeItems = {
-  lista: true,
+  lista: { include: { unidadMedida: { select: { codigo: true } } } },
   cliente: { select: { descripcion: true } },
   usuario: { select: { nombre: true } },
+  almacen: { select: { nombre: true } },
 };
 
 export const ventasRepository = {
@@ -107,23 +120,35 @@ export const ventasRepository = {
     const igv = Math.round(subtotalTotal * 0.18 * 100) / 100;
     const total = Math.round((subtotalTotal + igv) * 100) / 100;
 
+    const almacenId = parseInt(data.almacenId);
+
     const row = await db.$transaction(async tx => {
+      // Resolver unidad/factor de cada ítem (caja → unidades base, etc.)
+      const itemsResueltos = [];
+      for (const i of data.items) {
+        const { unidadMedidaId, factor } = await resolverFactorUnidad(tx, parseInt(i.productoId), i.unidadMedidaId);
+        itemsResueltos.push({ ...i, unidadMedidaId, factor });
+      }
+
       const venta = await tx.venta.create({
         data: {
           numero,
           clienteId: parseInt(data.clienteId),
           usuarioId,
+          almacenId,
           subtotal: subtotalTotal,
           igv,
           total,
           ...(data.tipoPagoId ? { tipoPagoId: parseInt(data.tipoPagoId) } : {}),
           observaciones: data.observaciones ?? null,
           lista: {
-            create: data.items.map(i => ({
+            create: itemsResueltos.map(i => ({
               productoId: parseInt(i.productoId),
               cantidad: i.cantidad,
               precioUnitario: i.precioUnitario,
               subtotal: i.cantidad * i.precioUnitario,
+              unidadMedidaId: i.unidadMedidaId,
+              factorUnidad: i.factor,
             })),
           },
         },
@@ -131,28 +156,16 @@ export const ventasRepository = {
       });
 
       for (const item of venta.lista) {
-        const producto = await tx.producto.findUnique({
-          where: { id: item.productoId },
-          select: { stock: true },
-        });
-        const stockAnterior = producto?.stock ?? 0;
-        const stockNuevo = stockAnterior - item.cantidad;
-        await tx.producto.update({
-          where: { id: item.productoId },
-          data: { stock: stockNuevo },
-        });
-        await tx.movimientoInventario.create({
-          data: {
-            productoId: item.productoId,
-            tipo: 'salida_venta',
-            cantidad: item.cantidad,
-            stockAnterior,
-            stockNuevo,
-            referenciaId: venta.id,
-            referenciaTipo: 'Venta',
-            observacion: `Venta ${venta.numero}`,
-            usuarioId,
-          },
+        await aplicarMovimientoStock(tx, {
+          productoId: item.productoId,
+          almacenId,
+          cantidad: aUnidadesBase(item.cantidad, Number(item.factorUnidad)),
+          tipo: 'salida_venta',
+          costoUnitario: await costoPromedioDe(tx, item.productoId),
+          referenciaId: venta.id,
+          referenciaTipo: 'Venta',
+          observacion: `Venta ${venta.numero}`,
+          usuarioId,
         });
       }
 

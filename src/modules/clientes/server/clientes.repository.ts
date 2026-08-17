@@ -77,6 +77,13 @@ export const clientesRepository = {
     return row ? toDto(row) : null;
   },
 
+  async findByEmail(email: string): Promise<Cliente | null> {
+    const row = await db.cliente.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
+    return row ? toDto(row) : null;
+  },
+
   async create(data: CreateClienteDto): Promise<Cliente> {
     const count = await db.cliente.count();
     const codigo = `CLI-${String(count + 1).padStart(4, '0')}`;

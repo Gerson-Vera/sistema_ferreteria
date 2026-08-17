@@ -1,7 +1,9 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -15,14 +17,18 @@ import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import PostAddIcon from '@mui/icons-material/PostAdd';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import SearchIcon from '@mui/icons-material/Search';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import StatCard from '@/shared/components/ui/StatCard';
+import { useToast } from '@/shared/context/ToastContext';
+import { ordenesCompraClientService } from '@/modules/ordenes-compra/services/ordenes-compra.client';
 
 type ProductoPlanificacion = {
   id: string;
@@ -32,6 +38,9 @@ type ProductoPlanificacion = {
   stockMinimo: number;
   stockMaximo: number;
   puntoReorden: number;
+  puntoReordenEfectivo: number;
+  demandaDiaria: number;
+  leadTimeDias: number;
   cantidadSugerida: number;
   costoSugerido: number;
   precioCompra: number;
@@ -43,12 +52,15 @@ type ProductoPlanificacion = {
 type Resumen = { total: number; criticos: number; reorden: number; totalCosto: number };
 
 export default function PlanificacionInventarioPage() {
+  const showToast = useToast();
   const [productos, setProductos] = useState<ProductoPlanificacion[]>([]);
   const [resumen, setResumen]     = useState<Resumen>({ total: 0, criticos: 0, reorden: 0, totalCosto: 0 });
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
   const [search, setSearch]       = useState('');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'critico' | 'reorden'>('todos');
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  const [generando, setGenerando] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,6 +70,7 @@ export default function PlanificacionInventarioPage() {
       const json = await res.json();
       setProductos(json.data.productos ?? []);
       setResumen(json.data.resumen ?? { total: 0, criticos: 0, reorden: 0, totalCosto: 0 });
+      setSeleccion(new Set());
     } catch {
       setError('No se pudo cargar la planificación de inventario');
     } finally {
@@ -77,11 +90,86 @@ export default function PlanificacionInventarioPage() {
   const fmtCurrency = (n: number) =>
     `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  // ── Selección para generar OC ─────────────────────────────────
+  const toggle = (id: string) =>
+    setSeleccion(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const filtradosConProveedor = useMemo(() => filtrados.filter(p => p.proveedor), [filtrados]);
+  const allChecked = filtradosConProveedor.length > 0 && filtradosConProveedor.every(p => seleccion.has(p.id));
+  const someChecked = filtradosConProveedor.some(p => seleccion.has(p.id));
+
+  const toggleAll = () =>
+    setSeleccion(allChecked ? new Set() : new Set(filtradosConProveedor.map(p => p.id)));
+
+  const seleccionados = productos.filter(p => seleccion.has(p.id));
+  const costoSeleccion = seleccionados.reduce((s, p) => s + p.costoSugerido, 0);
+
+  const handleGenerarOC = async () => {
+    if (seleccionados.length === 0) return;
+    setGenerando(true);
+    try {
+      // Una OC por proveedor con las cantidades sugeridas
+      const porProveedor = new Map<string, { nombre: string; items: ProductoPlanificacion[] }>();
+      for (const p of seleccionados) {
+        if (!p.proveedor) continue;
+        const grupo = porProveedor.get(p.proveedor.id) ?? { nombre: p.proveedor.nombre, items: [] };
+        grupo.items.push(p);
+        porProveedor.set(p.proveedor.id, grupo);
+      }
+
+      let creadas = 0;
+      for (const [proveedorId, grupo] of porProveedor) {
+        await ordenesCompraClientService.create({
+          proveedorId,
+          observaciones: 'Generada desde Planificación de Inventario',
+          items: grupo.items.map(p => ({
+            productoId: p.id,
+            descripcion: p.nombre,
+            cantidad: p.cantidadSugerida,
+            costoUnitario: p.precioCompra > 0 ? p.precioCompra : 0.01,
+            esNuevoProducto: false,
+          })),
+        });
+        creadas++;
+      }
+
+      showToast(
+        creadas === 1
+          ? 'Se generó 1 orden de compra en borrador'
+          : `Se generaron ${creadas} órdenes de compra en borrador (una por proveedor)`,
+        'success',
+      );
+      setSeleccion(new Set());
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Error al generar órdenes de compra', 'error');
+    } finally {
+      setGenerando(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
         title="Planificación de Inventario"
-        subtitle="Sugerencias de compra basadas en stock mínimo y punto de reorden"
+        subtitle="Sugerencias de compra según demanda real y tiempo de entrega del proveedor"
+        action={
+          <Button
+            variant="contained"
+            startIcon={generando ? <CircularProgress size={16} color="inherit" /> : <PostAddIcon />}
+            disabled={seleccionados.length === 0 || generando}
+            onClick={handleGenerarOC}
+          >
+            {generando
+              ? 'Generando…'
+              : seleccionados.length > 0
+                ? `Generar OC (${seleccionados.length}) · ${fmtCurrency(costoSeleccion)}`
+                : 'Generar OC'}
+          </Button>
+        }
       />
 
       {/* Stats */}
@@ -128,6 +216,14 @@ export default function PlanificacionInventarioPage() {
             <ToggleButton value="critico">Crítico</ToggleButton>
             <ToggleButton value="reorden">Reorden</ToggleButton>
           </ToggleButtonGroup>
+          {seleccionados.length > 0 && (
+            <Chip
+              label={`${seleccionados.length} seleccionado(s) · ${fmtCurrency(costoSeleccion)}`}
+              color="primary"
+              size="small"
+              onDelete={() => setSeleccion(new Set())}
+            />
+          )}
         </Box>
 
         {loading ? (
@@ -147,12 +243,20 @@ export default function PlanificacionInventarioPage() {
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: '#F8FAFC' }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      checked={allChecked}
+                      indeterminate={someChecked && !allChecked}
+                      onChange={toggleAll}
+                    />
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Producto</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Categoría</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Proveedor</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12 }}>Stock</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12 }}>Mín / Máx</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12 }}>Demanda/día</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12 }}>P. Reorden</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12 }}>Mín / Máx</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12 }}>Cant. Sugerida</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12 }}>Costo Est.</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12 }}>Estado</TableCell>
@@ -162,25 +266,40 @@ export default function PlanificacionInventarioPage() {
                 {filtrados.map(p => (
                   <TableRow
                     key={p.id}
+                    hover
+                    onClick={p.proveedor ? () => toggle(p.id) : undefined}
                     sx={{
-                      '&:hover': { bgcolor: '#F8FAFC' },
+                      cursor: p.proveedor ? 'pointer' : 'default',
                       bgcolor: p.estado === 'critico' ? 'rgba(239,68,68,0.04)' : 'inherit',
                     }}
                   >
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 600, fontSize: 13 }}>{p.nombre}</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'text.disabled', fontFamily: 'monospace' }}>{p.sku}</Typography>
+                    <TableCell padding="checkbox">
+                      <Tooltip title={p.proveedor ? '' : 'Sin proveedor asignado — asígnale uno en Productos para incluirlo en una OC'}>
+                        <span>
+                          <Checkbox
+                            size="small"
+                            checked={seleccion.has(p.id)}
+                            disabled={!p.proveedor}
+                            onChange={() => toggle(p.id)}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        </span>
+                      </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Typography sx={{ fontSize: 12 }}>{p.categoria}</Typography>
+                      <Typography sx={{ fontWeight: 600, fontSize: 13 }}>{p.nombre}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.disabled', fontFamily: 'monospace' }}>
+                        {p.sku} · {p.categoria}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       {p.proveedor ? (
                         <>
                           <Typography sx={{ fontSize: 12, fontWeight: 500 }}>{p.proveedor.nombre}</Typography>
-                          {p.proveedor.telefono && (
-                            <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{p.proveedor.telefono}</Typography>
-                          )}
+                          <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
+                            {p.leadTimeDias > 0 ? `Entrega: ${p.leadTimeDias} día(s)` : 'Sin lead time'}
+                            {p.proveedor.telefono ? ` · ${p.proveedor.telefono}` : ''}
+                          </Typography>
                         </>
                       ) : (
                         <Typography sx={{ fontSize: 12, color: 'text.disabled' }}>—</Typography>
@@ -198,13 +317,19 @@ export default function PlanificacionInventarioPage() {
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                        {p.stockMinimo} / {p.stockMaximo > 0 ? p.stockMaximo : '—'}
+                      <Typography sx={{ fontSize: 12, color: p.demandaDiaria > 0 ? 'text.primary' : 'text.disabled' }}>
+                        {p.demandaDiaria > 0 ? p.demandaDiaria : '—'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Typography sx={{ fontSize: 12, fontWeight: 600 }}>{p.puntoReordenEfectivo}</Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.disabled' }}>
+                        {p.puntoReorden > 0 ? 'manual' : 'auto'}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
                       <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                        {p.puntoReorden > 0 ? p.puntoReorden : '—'}
+                        {p.stockMinimo} / {p.stockMaximo > 0 ? p.stockMaximo : '—'}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">

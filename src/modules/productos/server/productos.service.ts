@@ -33,4 +33,8 @@ export const productosService = {
     await this.getById(id);
     return productosRepository.delete(id);
   },
+
+  async ensureCodigosBarras(ids: string[]) {
+    return productosRepository.ensureCodigosBarras(ids);
+  },
 };

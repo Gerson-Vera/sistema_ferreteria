@@ -22,31 +22,41 @@ const menusPorRol: Record<string, string[]> = {
   ADMIN: [
     'DASHBOARD',
     'INV', 'PRODUCTOS', 'CATEGORIAS', 'MARCAS', 'UNID_MED', 'ALMACENES',
-    'MOVIMIENTOS', 'AJUSTES_INV', 'CONTROL_STOCK', 'PLANIF_INV', 'ROTACION_INV',
+    'MOVIMIENTOS', 'AJUSTES_INV', 'CONTROL_STOCK', 'STOCK_ALMACEN', 'PLANIF_INV', 'ROTACION_INV', 'TRANSFERENCIAS', 'CONTEOS',
     'S_COMPRAS', 'PROVEEDORES', 'ORDENES_OC', 'COMPRAS',
-    'S_VENTAS', 'CLIENTES', 'VENTAS', 'CAJAS',
+    'S_VENTAS', 'CLIENTES', 'VENTAS', 'CAJAS', 'DEVOLUCIONES', 'DESPACHOS',
     'S_ANALISIS', 'REPORTES',
     'S_SEGURIDAD', 'SEC_USUARIOS', 'SEC_ROLES', 'SEC_MENUS',
   ],
   VENDEDOR: [
     'DASHBOARD',
     'PRODUCTOS',
-    'S_VENTAS', 'CLIENTES', 'VENTAS', 'CAJAS',
+    'S_VENTAS', 'CLIENTES', 'VENTAS', 'CAJAS', 'DEVOLUCIONES', 'DESPACHOS',
     'S_ANALISIS', 'REPORTES',
   ],
   ALMACEN: [
     'DASHBOARD',
     'INV', 'PRODUCTOS', 'CATEGORIAS', 'MARCAS', 'UNID_MED', 'ALMACENES',
-    'MOVIMIENTOS', 'AJUSTES_INV', 'CONTROL_STOCK', 'PLANIF_INV', 'ROTACION_INV',
+    'MOVIMIENTOS', 'AJUSTES_INV', 'CONTROL_STOCK', 'STOCK_ALMACEN', 'PLANIF_INV', 'ROTACION_INV', 'TRANSFERENCIAS', 'CONTEOS',
     'S_COMPRAS', 'PROVEEDORES', 'ORDENES_OC', 'COMPRAS',
   ],
 };
 
 async function main() {
   // ── Limpieza previa (orden inverso a las FK) ────────────────────
+  await db.despacho.deleteMany();
+  await db.conteoInventarioItem.deleteMany();
+  await db.conteoInventario.deleteMany();
+  await db.devolucionVentaItem.deleteMany();
+  await db.devolucionVenta.deleteMany();
+  await db.devolucionCompraItem.deleteMany();
+  await db.devolucionCompra.deleteMany();
+  await db.transferenciaAlmacenItem.deleteMany();
+  await db.transferenciaAlmacen.deleteMany();
   await db.ajusteInventarioItem.deleteMany();
   await db.ajusteInventario.deleteMany();
   await db.movimientoInventario.deleteMany();
+  await db.stockAlmacen.deleteMany();
   await db.ventaItem.deleteMany();
   await db.compraItem.deleteMany();
   await db.venta.deleteMany();
@@ -159,8 +169,11 @@ async function main() {
     { codigo: 'MOVIMIENTOS',   descripcion: 'Movimientos',         url: '/dashboard/movimientos',              icono: 'CompareArrows',  orden: 6,  padre: secInv },
     { codigo: 'AJUSTES_INV',   descripcion: 'Ajustes Inventario',  url: '/dashboard/ajustes-inventario',       icono: 'Tune',           orden: 7,  padre: secInv },
     { codigo: 'CONTROL_STOCK', descripcion: 'Control de Stock',    url: '/dashboard/control-stock',            icono: 'WarningAmber',   orden: 8,  padre: secInv },
-    { codigo: 'PLANIF_INV',    descripcion: 'Planificación',       url: '/dashboard/planificacion-inventario', icono: 'PendingActions', orden: 9,  padre: secInv },
-    { codigo: 'ROTACION_INV',  descripcion: 'Rotación ABC',        url: '/dashboard/rotacion-inventario',      icono: 'AutoGraph',      orden: 10, padre: secInv },
+    { codigo: 'STOCK_ALMACEN', descripcion: 'Stock por Almacén',   url: '/dashboard/stock-almacenes',          icono: 'Warehouse',      orden: 9,  padre: secInv },
+    { codigo: 'PLANIF_INV',    descripcion: 'Planificación',       url: '/dashboard/planificacion-inventario', icono: 'PendingActions', orden: 10, padre: secInv },
+    { codigo: 'ROTACION_INV',  descripcion: 'Rotación ABC',        url: '/dashboard/rotacion-inventario',      icono: 'AutoGraph',      orden: 11, padre: secInv },
+    { codigo: 'TRANSFERENCIAS', descripcion: 'Transferencias',     url: '/dashboard/transferencias',           icono: 'SwapHoriz',      orden: 12, padre: secInv },
+    { codigo: 'CONTEOS',       descripcion: 'Conteos de Inventario', url: '/dashboard/conteos-inventario',     icono: 'FactCheck',      orden: 13, padre: secInv },
     // ── Compras
     { codigo: 'PROVEEDORES',   descripcion: 'Proveedores',         url: '/dashboard/proveedores',    icono: 'LocalShipping', orden: 1, padre: secCompras },
     { codigo: 'ORDENES_OC',    descripcion: 'Órdenes a Prov.',     url: '/dashboard/ordenes-compra', icono: 'Assignment',    orden: 2, padre: secCompras },
@@ -169,6 +182,8 @@ async function main() {
     { codigo: 'CLIENTES',      descripcion: 'Clientes',            url: '/dashboard/clientes', icono: 'Groups',       orden: 1, padre: secVentas },
     { codigo: 'VENTAS',        descripcion: 'Ventas',              url: '/dashboard/ventas',   icono: 'ReceiptLong',  orden: 2, padre: secVentas },
     { codigo: 'CAJAS',         descripcion: 'Cajas',               url: '/dashboard/cajas',    icono: 'PointOfSale',  orden: 3, padre: secVentas },
+    { codigo: 'DEVOLUCIONES',  descripcion: 'Devoluciones',        url: '/dashboard/devoluciones', icono: 'AssignmentReturn', orden: 4, padre: secVentas },
+    { codigo: 'DESPACHOS',     descripcion: 'Despachos',           url: '/dashboard/despachos',    icono: 'LocalShipping',    orden: 5, padre: secVentas },
     // ── Análisis
     { codigo: 'REPORTES',      descripcion: 'Reportes',            url: '/dashboard/reportes', icono: 'BarChart',     orden: 1, padre: secAnalisis },
     // ── Seguridad
@@ -659,7 +674,7 @@ async function main() {
   for (const p of productos) {
     const exists = await db.producto.findFirst({ where: { codigo: p.codigo } });
     if (!exists) {
-      await db.producto.create({
+      const creado = await db.producto.create({
         data: {
           codigo:         p.codigo,
           codigoBarras:   p.codigoBarras,
@@ -667,6 +682,7 @@ async function main() {
           detalle:        p.detalle ?? null,
           precioCompra:   p.precioCompra,
           precioVenta:    p.precioVenta,
+          costoPromedio:  p.precioCompra,
           stock:          p.stock,
           stockMinimo:    p.stockMinimo,
           ubicacion:      p.ubicacion ?? null,
@@ -677,9 +693,17 @@ async function main() {
           almacenId:      p.almacenId ?? null,
         },
       });
+      // Stock inicial en el almacén asignado (o el principal)
+      await db.stockAlmacen.create({
+        data: {
+          productoId: creado.id,
+          almacenId:  creado.almacenId ?? almPrincipal!.id,
+          stock:      creado.stock,
+        },
+      });
     }
   }
-  console.log(`✔ ${productos.length} productos creados`);
+  console.log(`✔ ${productos.length} productos creados con stock por almacén`);
 
   // ── Tablas puente — Reglas de negocio por categoría ─────────────
   //

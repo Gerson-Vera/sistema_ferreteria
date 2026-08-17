@@ -37,6 +37,10 @@ export const queryProductoSchema = z.object({
   order: z.enum(['asc', 'desc']).default('asc'),
 });
 
+export const codigosBarrasSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1, 'Selecciona al menos un producto'),
+});
+
 export type CreateProductoInput = z.infer<typeof createProductoSchema>;
 export type UpdateProductoInput = z.infer<typeof updateProductoSchema>;
 export type QueryProductoInput = z.infer<typeof queryProductoSchema>;

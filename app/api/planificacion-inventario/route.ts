@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { ok, serverError } from '@/lib/api/response';
 import db from '@/lib/db';
 
+const DIAS_DEMANDA = 90;
+
 export type ProductoPlanificacion = {
   id: string;
   sku: string;
@@ -10,6 +12,11 @@ export type ProductoPlanificacion = {
   stockMinimo: number;
   stockMaximo: number;
   puntoReorden: number;
+  /** Punto de reorden usado: el manual, o el calculado con demanda × lead time. */
+  puntoReordenEfectivo: number;
+  /** Unidades vendidas por día (promedio últimos 90 días). */
+  demandaDiaria: number;
+  leadTimeDias: number;
   cantidadSugerida: number;
   costoSugerido: number;
   precioCompra: number;
@@ -20,27 +27,47 @@ export type ProductoPlanificacion = {
 
 export async function GET(_req: NextRequest) {
   try {
-    const productos = await db.producto.findMany({
-      where: { estado: true },
-      include: {
-        categoria: true,
-        proveedor: true,
-      },
-      orderBy: { stock: 'asc' },
-    });
+    const desde = new Date();
+    desde.setDate(desde.getDate() - DIAS_DEMANDA);
+
+    const [productos, salidas] = await Promise.all([
+      db.producto.findMany({
+        where: { estado: true },
+        include: { categoria: true, proveedor: true },
+        orderBy: { stock: 'asc' },
+      }),
+      // Demanda: unidades vendidas por producto en la ventana (en unidades base)
+      db.movimientoInventario.groupBy({
+        by: ['productoId'],
+        where: { tipo: 'salida_venta', estado: true, creadoEn: { gte: desde } },
+        _sum: { cantidad: true },
+      }),
+    ]);
+
+    const demandaMap = new Map(salidas.map(s => [s.productoId, s._sum.cantidad ?? 0]));
 
     const resultado: ProductoPlanificacion[] = [];
 
     for (const p of productos) {
-      const threshold = p.puntoReorden > 0 ? p.puntoReorden : p.stockMinimo;
-      if (p.stock > threshold) continue;
+      const demandaDiaria = Math.round(((demandaMap.get(p.id) ?? 0) / DIAS_DEMANDA) * 100) / 100;
+      const leadTimeDias = p.proveedor?.leadTimeDias ?? 0;
+
+      // Punto de reorden: manual si está definido; si no, demanda durante el
+      // lead time del proveedor + stock mínimo como colchón de seguridad
+      const puntoReordenEfectivo = p.puntoReorden > 0
+        ? p.puntoReorden
+        : leadTimeDias > 0 && demandaDiaria > 0
+          ? Math.ceil(demandaDiaria * leadTimeDias) + p.stockMinimo
+          : p.stockMinimo;
+
+      if (p.stock > puntoReordenEfectivo) continue;
 
       const estado: 'critico' | 'reorden' =
         p.stock === 0 || p.stock < p.stockMinimo ? 'critico' : 'reorden';
 
       const cantidadSugerida = p.stockMaximo > 0
         ? Math.max(p.stockMaximo - p.stock, 0)
-        : Math.max(p.stockMinimo * 2 - p.stock, 1);
+        : Math.max(Math.max(p.stockMinimo * 2, puntoReordenEfectivo) - p.stock, 1);
 
       resultado.push({
         id: String(p.id),
@@ -50,6 +77,9 @@ export async function GET(_req: NextRequest) {
         stockMinimo: p.stockMinimo,
         stockMaximo: p.stockMaximo,
         puntoReorden: p.puntoReorden,
+        puntoReordenEfectivo,
+        demandaDiaria,
+        leadTimeDias,
         cantidadSugerida,
         costoSugerido: cantidadSugerida * Number(p.precioCompra),
         precioCompra: Number(p.precioCompra),

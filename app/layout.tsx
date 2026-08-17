@@ -23,7 +23,7 @@ const barlowCondensed = Barlow_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: 'Sistema Ferretería',
+  title: 'Inversiones Andrew Valentino E.I.R.L.',
   description: 'Sistema de gestión para ferretería',
 };
 

@@ -11,6 +11,7 @@ function toDto(row: {
   email: string | null;
   telefono: string | null;
   direccion: string | null;
+  leadTimeDias: number;
   estado: boolean;
   creadoEn: Date;
   actualizadoEn: Date;
@@ -24,6 +25,7 @@ function toDto(row: {
     email: row.email,
     telefono: row.telefono,
     direccion: row.direccion,
+    leadTimeDias: row.leadTimeDias,
     activo: row.estado,
     creadoEn: row.creadoEn,
     actualizadoEn: row.actualizadoEn,
@@ -88,6 +90,7 @@ export const proveedoresRepository = {
         email: data.email ?? null,
         telefono: data.telefono ?? null,
         direccion: data.direccion ?? null,
+        leadTimeDias: data.leadTimeDias ?? 0,
       },
     });
     return toDto(row);
@@ -103,6 +106,7 @@ export const proveedoresRepository = {
         ...(data.email !== undefined && { email: data.email || null }),
         ...(data.telefono !== undefined && { telefono: data.telefono || null }),
         ...(data.direccion !== undefined && { direccion: data.direccion || null }),
+        ...(data.leadTimeDias !== undefined && { leadTimeDias: data.leadTimeDias }),
       },
     });
     return toDto(row);

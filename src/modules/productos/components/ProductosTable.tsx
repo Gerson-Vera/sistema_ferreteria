@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
@@ -23,8 +24,10 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import BarcodeReaderIcon from '@mui/icons-material/BarcodeReader';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import ScaleIcon from '@mui/icons-material/Scale';
 import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported';
 import SearchIcon from '@mui/icons-material/Search';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -63,6 +66,11 @@ type Props = {
   onStatusChange: (s: StatusFilter) => void;
   onEdit: (producto: Producto) => void;
   onDelete: (producto: Producto) => void;
+  onConversiones?: (producto: Producto) => void;
+  onPrintBarcode?: (producto: Producto) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleSelectAll?: (checked: boolean) => void;
 };
 
 // ─── Celda de header ─────────────────────────────────────────────────────────
@@ -107,6 +115,11 @@ export default function ProductosTable({
   status,
   onEdit,
   onDelete,
+  onConversiones,
+  onPrintBarcode,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
 }: Props) {
   const [inputValue, setInputValue] = useState(search);
 
@@ -121,6 +134,11 @@ export default function ProductosTable({
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n);
+
+  const selectable = !!onToggleSelect && !!selectedIds;
+  const pageIds = productos.map(p => p.id);
+  const allSelected = selectable && pageIds.length > 0 && pageIds.every(id => selectedIds!.has(id));
+  const someSelected = selectable && pageIds.some(id => selectedIds!.has(id));
 
   return (
     <Box>
@@ -299,6 +317,17 @@ export default function ProductosTable({
           <Table>
             <TableHead>
               <TableRow>
+                {selectable && (
+                  <TH>
+                    <Checkbox
+                      size="small"
+                      checked={allSelected}
+                      indeterminate={someSelected && !allSelected}
+                      onChange={e => onToggleSelectAll!(e.target.checked)}
+                      sx={{ p: 0 }}
+                    />
+                  </TH>
+                )}
                 <TH />
                 <TH>SKU</TH>
                 <TH>Producto</TH>
@@ -315,6 +344,11 @@ export default function ProductosTable({
               {/* ── Skeleton ───────────────────────────────────────── */}
               {loading && Array.from({ length: limit }).map((_, i) => (
                 <TableRow key={i}>
+                  {selectable && (
+                    <TableCell sx={{ py: 1 }}>
+                      <Skeleton variant="rectangular" width={18} height={18} sx={{ borderRadius: '4px' }} />
+                    </TableCell>
+                  )}
                   <TableCell sx={{ py: 1 }}>
                     <Skeleton variant="rectangular" width={44} height={44} sx={{ borderRadius: '8px' }} />
                   </TableCell>
@@ -329,7 +363,7 @@ export default function ProductosTable({
               {/* ── Vacío ──────────────────────────────────────────── */}
               {!loading && productos.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} sx={{ py: 8, textAlign: 'center' }}>
+                  <TableCell colSpan={selectable ? 10 : 9} sx={{ py: 8, textAlign: 'center' }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                       <ImageNotSupportedIcon sx={{ fontSize: 40, color: C.textMuted }} />
                       <Typography sx={{ color: C.textMuted, fontSize: 14 }}>
@@ -359,6 +393,18 @@ export default function ProductosTable({
                       transition: 'background-color 0.1s',
                     }}
                   >
+                    {/* Selección */}
+                    {selectable && (
+                      <TableCell sx={{ py: 1 }}>
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds!.has(prod.id)}
+                          onChange={() => onToggleSelect!(prod.id)}
+                          sx={{ p: 0 }}
+                        />
+                      </TableCell>
+                    )}
+
                     {/* Imagen */}
                     <TableCell sx={{ py: 1, px: 1.5, width: 64 }}>
                       {prod.img ? (
@@ -548,6 +594,42 @@ export default function ProductosTable({
                     {/* Acciones */}
                     <TableCell align="right" sx={{ py: 1, pr: 2 }}>
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
+                        {onPrintBarcode && (
+                          <Tooltip title="Generar/imprimir código de barras" placement="top">
+                            <IconButton
+                              size="small"
+                              onClick={() => onPrintBarcode(prod)}
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                color: '#0F766E',
+                                bgcolor: 'rgba(15,118,110,0.07)',
+                                borderRadius: '8px',
+                                '&:hover': { bgcolor: 'rgba(15,118,110,0.15)' },
+                              }}
+                            >
+                              <BarcodeReaderIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {onConversiones && (
+                          <Tooltip title="Unidades alternativas (caja, paquete…)" placement="top">
+                            <IconButton
+                              size="small"
+                              onClick={() => onConversiones(prod)}
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                color: '#7C3AED',
+                                bgcolor: 'rgba(124,58,237,0.07)',
+                                borderRadius: '8px',
+                                '&:hover': { bgcolor: 'rgba(124,58,237,0.15)' },
+                              }}
+                            >
+                              <ScaleIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                         <Tooltip title="Editar producto" placement="top">
                           <IconButton
                             size="small"

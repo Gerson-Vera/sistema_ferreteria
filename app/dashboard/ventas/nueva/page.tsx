@@ -26,10 +26,14 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import EscanerCodigoDialog from '@/modules/ventas/components/EscanerCodigoDialog';
+import ClienteFormDialog from '@/modules/clientes/components/ClienteFormDialog';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { useToast } from '@/shared/context/ToastContext';
 import { generarBoletaPDF } from '@/shared/utils/boleta-pdf';
@@ -37,14 +41,21 @@ import { clientesClientService } from '@/modules/clientes/services/clientes.clie
 import { productosClientService } from '@/modules/productos/services/productos.client';
 import { tiposPagoClientService } from '@/modules/tipos-pago/services/tipos-pago.client';
 import { ventasClientService } from '@/modules/ventas/services/ventas.client';
-import type { Cliente } from '@/modules/clientes/types';
-import type { Producto } from '@/modules/productos/types';
+import { almacenesClientService } from '@/modules/almacenes/services/almacenes.client';
+import { stockAlmacenesClientService } from '@/modules/stock-almacenes/services/stock-almacenes.client';
+import type { Cliente, CreateClienteDto } from '@/modules/clientes/types';
+import type { Producto, ProductoConversion } from '@/modules/productos/types';
 import type { TipoPago } from '@/modules/tipos-pago/types';
+import type { Almacen } from '@/modules/almacenes/types';
 
 type LineItem = {
   producto: Producto;
   cantidad: number;
   precioUnitario: number;
+  /** '' = unidad base; si no, id de la unidad alternativa. */
+  unidadMedidaId: string;
+  /** 1 unidad vendida = factor unidades base de stock. */
+  factor: number;
 };
 
 const IGV_RATE = 0.18;
@@ -58,6 +69,10 @@ export default function NuevaVentaPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [tiposPago, setTiposPago] = useState<TipoPago[]>([]);
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
+  const [almacenId, setAlmacenId] = useState('');
+  const [stockAlmacen, setStockAlmacen] = useState<Record<string, number>>({});
+  const [conversiones, setConversiones] = useState<Record<string, ProductoConversion[]>>({});
 
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [tipoPagoId, setTipoPagoId] = useState('');
@@ -71,41 +86,94 @@ export default function NuevaVentaPage() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
   const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [escanerOpen, setEscanerOpen] = useState(false);
+
+  // Registro de cliente nuevo sin salir de la venta
+  const [clienteFormOpen, setClienteFormOpen] = useState(false);
+  const [creandoCliente, setCreandoCliente] = useState(false);
 
   useEffect(() => {
     clientesClientService.getAll({ limit: 200 }).then(r => setClientes(r.data)).catch(() => {});
     productosClientService.getAll({ limit: 500, activo: true }).then(r => setProductos(r.data)).catch(() => {});
     tiposPagoClientService.getAll(true).then(setTiposPago).catch(() => {});
+    almacenesClientService.getAll(true).then(a => {
+      setAlmacenes(a);
+      if (a.length > 0) setAlmacenId(prev => prev || a[0].id);
+    }).catch(() => {});
   }, []);
+
+  // Stock disponible (físico − reservado) por producto en el almacén seleccionado
+  useEffect(() => {
+    if (!almacenId) { setStockAlmacen({}); return; }
+    stockAlmacenesClientService.getAll({ almacenId, limit: 1000 })
+      .then(r => {
+        const map: Record<string, number> = {};
+        for (const s of r.data) map[s.productoId] = s.disponible;
+        setStockAlmacen(map);
+      })
+      .catch(() => setStockAlmacen({}));
+  }, [almacenId]);
+
+  const stockDe = (productoId: string) => stockAlmacen[productoId] ?? 0;
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.cantidad * i.precioUnitario, 0), [items]);
   const igv     = useMemo(() => Math.round(subtotal * IGV_RATE * 100) / 100, [subtotal]);
   const total   = useMemo(() => Math.round((subtotal + igv) * 100) / 100, [subtotal, igv]);
 
+  // ── Cliente nuevo desde la venta ──────────────────────────────
+  // El servidor valida que el documento (DNI/RUC/carnet) y el email no se repitan.
+  const handleCrearCliente = async (data: CreateClienteDto) => {
+    setCreandoCliente(true);
+    try {
+      const nuevo = await clientesClientService.create(data);
+      setClientes(prev => [nuevo, ...prev]);
+      setClienteSeleccionado(nuevo);
+      setClienteFormOpen(false);
+      showToast(`Cliente "${nuevo.nombre}" registrado y seleccionado`, 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Error al registrar cliente', 'error');
+    } finally {
+      setCreandoCliente(false);
+    }
+  };
+
   // ── Barcode scan ──────────────────────────────────────────────
+  // Busca por código de barras/QR y agrega el producto. Compartido por
+  // la pistola USB (input) y el escáner de cámara/imagen (diálogo).
+  const buscarPorCodigo = async (codigo: string): Promise<{ ok: boolean; mensaje: string }> => {
+    try {
+      const res = await fetch(`/api/productos/barcode/${encodeURIComponent(codigo)}`);
+      if (!res.ok) return { ok: false, mensaje: 'Producto no encontrado' };
+      const json = await res.json();
+      const prod: Producto = json.data;
+      if (!prod.activo) return { ok: false, mensaje: `${prod.nombre} está inactivo` };
+      agregarProducto(prod);
+      return { ok: true, mensaje: prod.nombre };
+    } catch {
+      return { ok: false, mensaje: 'Error al buscar el producto' };
+    }
+  };
+
   const handleBarcodeScan = async () => {
     const codigo = barcodeInput.trim();
     if (!codigo) return;
     setBarcodeError(null);
     setBarcodeLoading(true);
-    try {
-      const res = await fetch(`/api/productos/barcode/${encodeURIComponent(codigo)}`);
-      if (!res.ok) { setBarcodeError(`Producto no encontrado: ${codigo}`); return; }
-      const json = await res.json();
-      const prod: Producto = json.data;
-      if (!prod.activo) { setBarcodeError('Producto inactivo'); return; }
-      agregarProducto(prod);
-      setBarcodeInput('');
-      barcodeRef.current?.focus();
-    } catch {
-      setBarcodeError('Error al buscar el producto');
-    } finally {
-      setBarcodeLoading(false);
-    }
+    const res = await buscarPorCodigo(codigo);
+    setBarcodeLoading(false);
+    if (!res.ok) { setBarcodeError(`${res.mensaje}: ${codigo}`); return; }
+    setBarcodeInput('');
+    barcodeRef.current?.focus();
   };
 
   // ── Agregar producto (compartido por scan y autocomplete) ─────
   const agregarProducto = (prod: Producto) => {
+    // Cargar las unidades alternativas del producto (caja, paquete…) si aún no están
+    if (conversiones[prod.id] === undefined) {
+      productosClientService.getConversiones(prod.id)
+        .then(c => setConversiones(prev => ({ ...prev, [prod.id]: c })))
+        .catch(() => setConversiones(prev => ({ ...prev, [prod.id]: [] })));
+    }
     setItems(prev => {
       const existe = prev.find(i => i.producto.id === prod.id);
       if (existe) {
@@ -113,8 +181,23 @@ export default function NuevaVentaPage() {
           i.producto.id === prod.id ? { ...i, cantidad: i.cantidad + 1 } : i,
         );
       }
-      return [...prev, { producto: prod, cantidad: 1, precioUnitario: prod.precioVenta }];
+      return [...prev, { producto: prod, cantidad: 1, precioUnitario: prod.precioVenta, unidadMedidaId: '', factor: 1 }];
     });
+  };
+
+  const cambiarUnidad = (idx: number, unidadMedidaId: string) => {
+    setItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const conv = (conversiones[it.producto.id] ?? []).find(c => c.unidadMedidaId === unidadMedidaId);
+      const factor = conv?.factor ?? 1;
+      return {
+        ...it,
+        unidadMedidaId: conv ? unidadMedidaId : '',
+        factor,
+        // Precio sugerido proporcional a la unidad elegida
+        precioUnitario: Math.round(it.producto.precioVenta * factor * 100) / 100,
+      };
+    }));
   };
 
   const addProductoDesdeSelect = () => {
@@ -123,16 +206,20 @@ export default function NuevaVentaPage() {
     setProductoSeleccionado(null);
   };
 
-  // ── Validación de stock ───────────────────────────────────────
+  // ── Validación de stock (contra el almacén seleccionado, en unidades base) ─────
   const stockErrors = useMemo(() => {
     const errs: Record<string, string> = {};
     for (const item of items) {
-      if (item.cantidad > item.producto.stock) {
-        errs[item.producto.id] = `Stock insuficiente: disponible ${item.producto.stock}`;
+      const disponible = stockAlmacen[item.producto.id] ?? 0;
+      const requerido = Math.round(item.cantidad * item.factor);
+      if (requerido > disponible) {
+        errs[item.producto.id] = item.factor > 1
+          ? `Stock insuficiente: requiere ${requerido}, disponible ${disponible}`
+          : `Stock insuficiente: disponible ${disponible}`;
       }
     }
     return errs;
-  }, [items]);
+  }, [items, stockAlmacen]);
 
   const hayStockError = Object.keys(stockErrors).length > 0;
 
@@ -152,6 +239,7 @@ export default function NuevaVentaPage() {
   const handleSubmit = async () => {
     setError(null);
     if (!clienteSeleccionado) { setError('Selecciona un cliente'); return; }
+    if (!almacenId)           { setError('Selecciona un almacén'); return; }
     if (items.length === 0)   { setError('Agrega al menos un producto'); return; }
     if (hayStockError)        { setError('Corrige los productos con stock insuficiente antes de continuar'); return; }
 
@@ -160,10 +248,12 @@ export default function NuevaVentaPage() {
       const venta = await ventasClientService.create({
         clienteId: clienteSeleccionado.id,
         tipoPagoId: tipoPagoId || undefined,
+        almacenId,
         items: items.map(i => ({
           productoId: i.producto.id,
           cantidad: i.cantidad,
           precioUnitario: i.precioUnitario,
+          unidadMedidaId: i.unidadMedidaId || undefined,
         })),
         observaciones: observaciones.trim() || undefined,
       });
@@ -208,11 +298,21 @@ export default function NuevaVentaPage() {
 
       <Stack spacing={3}>
 
-        {/* ── Cabecera: cliente + tipo de pago ── */}
+        {/* ── Cabecera: cliente + almacén + tipo de pago ── */}
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 7 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Cliente *</Typography>
+            <Grid size={{ xs: 12, sm: 5 }}>
+              <Stack direction="row" sx={{ mb: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="subtitle2">Cliente *</Typography>
+                <Button
+                  size="small"
+                  startIcon={<PersonAddIcon />}
+                  onClick={() => setClienteFormOpen(true)}
+                  sx={{ py: 0, minHeight: 0 }}
+                >
+                  Nuevo cliente
+                </Button>
+              </Stack>
               <Autocomplete
                 options={clientes}
                 getOptionLabel={c => `${c.nombre} — ${c.numeroDocumento}`}
@@ -240,7 +340,22 @@ export default function NuevaVentaPage() {
                 fullWidth
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 5 }}>
+            <Grid size={{ xs: 12, sm: 3.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Almacén *</Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel>Almacén</InputLabel>
+                <Select
+                  value={almacenId}
+                  label="Almacén"
+                  onChange={e => setAlmacenId(e.target.value)}
+                >
+                  {almacenes.map(a => (
+                    <MenuItem key={a.id} value={a.id}>{a.nombre}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 3.5 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Forma de pago</Typography>
               <FormControl fullWidth size="small">
                 <InputLabel>Forma de pago</InputLabel>
@@ -285,6 +400,15 @@ export default function NuevaVentaPage() {
                         <QrCodeScannerIcon fontSize="small" color={barcodeLoading ? 'disabled' : 'action'} />
                       </InputAdornment>
                     ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title="Escanear con cámara o subir imagen">
+                          <IconButton size="small" color="primary" onClick={() => setEscanerOpen(true)}>
+                            <CameraAltIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ),
                   },
                 }}
               />
@@ -302,7 +426,7 @@ export default function NuevaVentaPage() {
                     <Box>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>{p.nombre}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {p.sku} · Stock: {p.stock} · S/ {p.precioVenta.toFixed(2)}
+                        {p.sku} · Stock: {stockDe(p.id)} · S/ {p.precioVenta.toFixed(2)}
                       </Typography>
                     </Box>
                   </Box>
@@ -340,6 +464,7 @@ export default function NuevaVentaPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>Producto</TableCell>
+                  <TableCell align="center" sx={{ width: 120 }}>Unidad</TableCell>
                   <TableCell align="center" sx={{ width: 55 }}>Stock</TableCell>
                   <TableCell align="center" sx={{ width: 110 }}>Cantidad</TableCell>
                   <TableCell align="right" sx={{ width: 140 }}>Precio Unit.</TableCell>
@@ -350,7 +475,7 @@ export default function NuevaVentaPage() {
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                       <Typography variant="body2" color="text.secondary">
                         Sin productos — usa el escáner o el buscador
                       </Typography>
@@ -379,10 +504,35 @@ export default function NuevaVentaPage() {
                           )}
                         </TableCell>
                         <TableCell align="center">
+                          {(conversiones[item.producto.id] ?? []).length > 0 ? (
+                            <FormControl size="small" fullWidth>
+                              <Select
+                                value={item.unidadMedidaId}
+                                onChange={e => cambiarUnidad(idx, e.target.value)}
+                                displayEmpty
+                              >
+                                <MenuItem value="">Unidad</MenuItem>
+                                {(conversiones[item.producto.id] ?? []).map(c => (
+                                  <MenuItem key={c.unidadMedidaId} value={c.unidadMedidaId}>
+                                    {c.unidadCodigo} (×{c.factor})
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">—</Typography>
+                          )}
+                          {item.factor > 1 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3 }}>
+                              = {Math.round(item.cantidad * item.factor)} unid. base
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
                           <Chip
-                            label={item.producto.stock}
+                            label={stockDe(item.producto.id)}
                             size="small"
-                            color={item.producto.stock <= item.producto.stockMinimo ? 'warning' : 'default'}
+                            color={stockDe(item.producto.id) <= item.producto.stockMinimo ? 'warning' : 'default'}
                             variant="outlined"
                           />
                         </TableCell>
@@ -400,7 +550,7 @@ export default function NuevaVentaPage() {
                               size="small"
                               sx={{ width: 85 }}
                               error={!!stockErr}
-                              slotProps={{ htmlInput: { min: 1, max: item.producto.stock, style: { textAlign: 'center' } } }}
+                              slotProps={{ htmlInput: { min: 1, max: Math.floor(stockDe(item.producto.id) / item.factor), style: { textAlign: 'center' } } }}
                             />
                           </Tooltip>
                         </TableCell>
@@ -473,12 +623,27 @@ export default function NuevaVentaPage() {
           <Button
             variant="contained"
             onClick={handleSubmit}
-            disabled={saving || items.length === 0 || !clienteSeleccionado || hayStockError}
+            disabled={saving || items.length === 0 || !clienteSeleccionado || !almacenId || hayStockError}
           >
             {saving ? 'Guardando...' : 'Registrar Venta y Descargar Boleta'}
           </Button>
         </Box>
       </Stack>
+
+      {/* Escáner con cámara en vivo o foto (QR y códigos de barras) */}
+      <EscanerCodigoDialog
+        open={escanerOpen}
+        onClose={() => setEscanerOpen(false)}
+        onDetect={buscarPorCodigo}
+      />
+
+      {/* Registrar cliente nuevo sin salir de la venta */}
+      <ClienteFormDialog
+        open={clienteFormOpen}
+        onClose={() => setClienteFormOpen(false)}
+        onSubmit={handleCrearCliente}
+        loading={creandoCliente}
+      />
     </>
   );
 }

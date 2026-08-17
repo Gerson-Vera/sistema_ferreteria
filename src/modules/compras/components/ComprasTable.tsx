@@ -24,14 +24,16 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import type { Compra, EstadoCompra } from '../types';
 
-const estadoColor: Record<EstadoCompra, 'warning' | 'success' | 'error'> = {
+const estadoColor: Record<EstadoCompra, 'warning' | 'info' | 'success' | 'error'> = {
   pendiente: 'warning',
+  parcial: 'info',
   recibida: 'success',
   anulada: 'error',
 };
 
 const estadoLabel: Record<EstadoCompra, string> = {
   pendiente: 'Pendiente',
+  parcial: 'Parcial',
   recibida: 'Recibida',
   anulada: 'Anulada',
 };
@@ -75,6 +77,7 @@ export default function ComprasTable({
           <Select value={estadoFilter} label="Estado" onChange={e => onEstadoChange(e.target.value)}>
             <MenuItem value="">Todos</MenuItem>
             <MenuItem value="pendiente">Pendiente</MenuItem>
+            <MenuItem value="parcial">Parcial</MenuItem>
             <MenuItem value="recibida">Recibida</MenuItem>
             <MenuItem value="anulada">Anulada</MenuItem>
           </Select>
@@ -160,14 +163,14 @@ export default function ComprasTable({
                         <VisibilityIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    {c.estado === 'pendiente' && (
-                      <Tooltip title="Marcar recibida">
+                    {(c.estado === 'pendiente' || c.estado === 'parcial') && (
+                      <Tooltip title={c.estado === 'parcial' ? 'Recibir pendiente' : 'Registrar recepción'}>
                         <IconButton size="small" color="success" onClick={() => onRecibir(c)}>
                           <CheckCircleIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     )}
-                    {c.estado !== 'anulada' && (
+                    {c.estado === 'pendiente' && (
                       <Tooltip title="Anular compra">
                         <IconButton size="small" color="error" onClick={() => onAnular(c)}>
                           <BlockIcon fontSize="small" />

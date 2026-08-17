@@ -1,4 +1,5 @@
 import db from '@/lib/db';
+import { aplicarMovimientoStock, resolverAlmacenId, stockEnAlmacen, costoPromedioDe } from '@/lib/inventario/stock';
 import type { AjusteInventario, AjusteInventarioItem, EstadoAjuste, CreateAjusteInventarioDto } from '../types';
 import type { PaginatedResponse } from '@/shared/types';
 import type { QueryAjusteInput } from '../schemas';
@@ -17,6 +18,8 @@ type AjusteRow = {
   numero: string;
   motivo: string;
   usuarioId: number;
+  almacenId: number | null;
+  almacen: { nombre: string } | null;
   estado: string;
   observaciones: string | null;
   creadoEn: Date;
@@ -41,6 +44,8 @@ function toDto(row: AjusteRow): AjusteInventario {
     numero: row.numero,
     motivo: row.motivo,
     usuarioId: String(row.usuarioId),
+    almacenId: row.almacenId !== null ? String(row.almacenId) : null,
+    almacenNombre: row.almacen?.nombre ?? null,
     estado: row.estado as EstadoAjuste,
     observaciones: row.observaciones,
     items: row.lista.map(itemToDto),
@@ -49,7 +54,7 @@ function toDto(row: AjusteRow): AjusteInventario {
   };
 }
 
-const includeItems = { lista: true };
+const includeItems = { lista: true, almacen: { select: { nombre: true } } };
 
 export const ajustesInventarioRepository = {
   async findMany(params: QueryAjusteInput): Promise<PaginatedResponse<AjusteInventario>> {
@@ -80,19 +85,25 @@ export const ajustesInventarioRepository = {
   },
 
   async create(data: CreateAjusteInventarioDto, numero: string, usuarioId: number): Promise<AjusteInventario> {
+    const almacenId = parseInt(data.almacenId);
+
     const row = await db.$transaction(async tx => {
-      const productos = await tx.producto.findMany({
-        where: { id: { in: data.items.map(i => parseInt(i.productoId)) } },
-        select: { id: true, stock: true },
+      const stocks = await tx.stockAlmacen.findMany({
+        where: {
+          almacenId,
+          productoId: { in: data.items.map(i => parseInt(i.productoId)) },
+        },
+        select: { productoId: true, stock: true },
       });
 
-      const stockMap = new Map(productos.map(p => [p.id, p.stock]));
+      const stockMap = new Map(stocks.map(s => [s.productoId, s.stock]));
 
       return tx.ajusteInventario.create({
         data: {
           numero,
           motivo: data.motivo,
           usuarioId,
+          almacenId,
           observaciones: data.observaciones ?? null,
           lista: {
             create: data.items.map(i => {
@@ -118,24 +129,25 @@ export const ajustesInventarioRepository = {
       const ajuste = await tx.ajusteInventario.findUnique({ where: { id: parseInt(id) }, include: includeItems });
       if (!ajuste) throw new Error('Ajuste no encontrado');
 
+      // Ajustes antiguos sin almacén: aplicar sobre el primer almacén activo
+      const almacenId = await resolverAlmacenId(tx, ajuste.almacenId);
+
       for (const item of ajuste.lista) {
-        await tx.producto.update({
-          where: { id: item.productoId },
-          data: { stock: item.stockFisico },
-        });
-        const tipoMov = item.diferencia >= 0 ? 'entrada_ajuste' : 'salida_ajuste';
-        await tx.movimientoInventario.create({
-          data: {
-            productoId: item.productoId,
-            tipo: tipoMov,
-            cantidad: Math.abs(item.diferencia),
-            stockAnterior: item.stockSistema,
-            stockNuevo: item.stockFisico,
-            referenciaId: ajuste.id,
-            referenciaTipo: 'AjusteInventario',
-            observacion: `Ajuste ${ajuste.numero}: ${ajuste.motivo}`,
-            usuarioId: ajuste.usuarioId,
-          },
+        // Diferencia contra el stock actual del almacén (puede haber cambiado desde el borrador)
+        const stockActual = await stockEnAlmacen(tx, item.productoId, almacenId);
+        const delta = item.stockFisico - stockActual;
+        if (delta === 0) continue;
+
+        await aplicarMovimientoStock(tx, {
+          productoId: item.productoId,
+          almacenId,
+          cantidad: Math.abs(delta),
+          tipo: delta > 0 ? 'entrada_ajuste' : 'salida_ajuste',
+          costoUnitario: await costoPromedioDe(tx, item.productoId),
+          referenciaId: ajuste.id,
+          referenciaTipo: 'AjusteInventario',
+          observacion: `Ajuste ${ajuste.numero}: ${ajuste.motivo}`,
+          usuarioId: ajuste.usuarioId,
         });
       }
 

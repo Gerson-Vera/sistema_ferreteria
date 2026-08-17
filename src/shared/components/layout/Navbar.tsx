@@ -38,6 +38,9 @@ const PAGE_META: Record<string, { title: string; section?: string }> = {
   '/dashboard/movimientos':        { title: 'Movimientos',          section: 'Inventario' },
   '/dashboard/ajustes-inventario':          { title: 'Ajustes de Inventario',     section: 'Inventario' },
   '/dashboard/control-stock':               { title: 'Control de Stock',           section: 'Inventario' },
+  '/dashboard/stock-almacenes':             { title: 'Stock por Almacén',          section: 'Inventario' },
+  '/dashboard/transferencias':              { title: 'Transferencias',             section: 'Inventario' },
+  '/dashboard/conteos-inventario':          { title: 'Conteos de Inventario',      section: 'Inventario' },
   '/dashboard/planificacion-inventario':    { title: 'Planificación de Inventario',section: 'Inventario' },
   '/dashboard/rotacion-inventario':         { title: 'Rotación de Inventario',     section: 'Inventario' },
   '/dashboard/proveedores':        { title: 'Proveedores',              section: 'Compras' },
@@ -46,6 +49,8 @@ const PAGE_META: Record<string, { title: string; section?: string }> = {
   '/dashboard/clientes':           { title: 'Clientes',             section: 'Ventas'     },
   '/dashboard/ventas':             { title: 'Ventas',               section: 'Ventas'     },
   '/dashboard/cajas':              { title: 'Cajas',                section: 'Ventas'     },
+  '/dashboard/devoluciones':       { title: 'Devoluciones',         section: 'Ventas'     },
+  '/dashboard/despachos':          { title: 'Despachos y Entregas', section: 'Ventas'     },
   '/dashboard/reportes':           { title: 'Reportes & Análisis',  section: 'Análisis'   },
 };
 

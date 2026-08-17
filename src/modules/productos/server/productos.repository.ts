@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import db from '@/lib/db';
-import type { Producto, CreateProductoDto, UpdateProductoDto } from '../types';
+import { resolverAlmacenId } from '@/lib/inventario/stock';
+import type { Producto, CreateProductoDto, UpdateProductoDto, ProductoConversion, SetConversionDto } from '../types';
 import type { PaginatedResponse, QueryParams } from '@/shared/types';
 
 type DecimalLike = { toString(): string };
@@ -14,6 +15,7 @@ type ProductoRow = {
   img: string | null;
   precioCompra: DecimalLike;
   precioVenta: DecimalLike;
+  costoPromedio: DecimalLike;
   stock: number;
   stockMinimo: number;
   stockMaximo: number;
@@ -39,6 +41,7 @@ function toDto(row: ProductoRow): Producto {
     img: row.img,
     precioCompra: Number(row.precioCompra),
     precioVenta: Number(row.precioVenta),
+    costoPromedio: Number(row.costoPromedio),
     stock: row.stock,
     stockMinimo: row.stockMinimo,
     stockMaximo: row.stockMaximo,
@@ -161,14 +164,18 @@ export const productosRepository = {
   },
 
   async findByCodigoBarras(codigoBarras: string): Promise<Producto | null> {
-    const row = await db.producto.findUnique({ where: { codigoBarras } });
+    // Acepta tanto el código de barras/QR como el código interno (SKU)
+    const row = await db.producto.findFirst({
+      where: { OR: [{ codigoBarras }, { codigo: { equals: codigoBarras, mode: 'insensitive' } }] },
+    });
     return row ? toDto(row) : null;
   },
 
   async create(data: CreateProductoDto): Promise<Producto> {
     const codigoBarras = data.codigoBarras?.trim() || await uniqueEan13();
 
-    const row = await db.producto.create({
+    const row = await db.$transaction(async tx => {
+      const producto = await tx.producto.create({
       data: {
         codigo: randomUUID(),
         codigoBarras,
@@ -177,6 +184,7 @@ export const productosRepository = {
         img: data.img ?? null,
         precioCompra: data.precioCompra,
         precioVenta: data.precioVenta,
+        costoPromedio: data.precioCompra,
         stock: data.stock,
         stockMinimo: data.stockMinimo,
         stockMaximo: data.stockMaximo ?? 0,
@@ -196,12 +204,27 @@ export const productosRepository = {
           ? { almacen: { connect: { id: parseInt(data.almacenId) } } }
           : {}),
       },
+      });
+
+      // Registrar el stock inicial en el almacén asignado (o el primero activo)
+      const almacenId = await resolverAlmacenId(tx, producto.almacenId);
+      await tx.stockAlmacen.create({
+        data: { productoId: producto.id, almacenId, stock: producto.stock },
+      });
+
+      return producto;
     });
     return toDto(row);
   },
 
   async update(id: string, data: UpdateProductoDto): Promise<Producto> {
-    const row = await db.producto.update({
+    const row = await db.$transaction(async tx => {
+      const anterior = await tx.producto.findUniqueOrThrow({
+        where: { id: parseInt(id) },
+        select: { stock: true, almacenId: true },
+      });
+
+      const producto = await tx.producto.update({
       where: { id: parseInt(id) },
       data: {
         ...(data.nombre !== undefined && { descripcion: data.nombre }),
@@ -239,8 +262,55 @@ export const productosRepository = {
             : { almacen: { disconnect: true } }
         )),
       },
+      });
+
+      // Si se editó el stock total directamente, reflejar la diferencia
+      // en el stock del almacén asignado al producto
+      if (data.stock !== undefined && data.stock !== anterior.stock) {
+        const delta = data.stock - anterior.stock;
+        const almacenId = await resolverAlmacenId(tx, producto.almacenId ?? anterior.almacenId);
+        await tx.stockAlmacen.upsert({
+          where: { productoId_almacenId: { productoId: producto.id, almacenId } },
+          update: { stock: { increment: delta } },
+          create: { productoId: producto.id, almacenId, stock: data.stock },
+        });
+      }
+
+      return producto;
     });
     return toDto(row);
+  },
+
+  async getConversiones(id: string): Promise<ProductoConversion[]> {
+    const rows = await db.productoUnidadConversion.findMany({
+      where: { productoId: parseInt(id), estado: true },
+      include: { unidadMedida: { select: { codigo: true, descripcion: true } } },
+      orderBy: { factor: 'asc' },
+    });
+    return rows.map(r => ({
+      id: String(r.id),
+      unidadMedidaId: String(r.unidadMedidaId),
+      unidadCodigo: r.unidadMedida.codigo,
+      unidadNombre: r.unidadMedida.descripcion,
+      factor: Number(r.factor),
+    }));
+  },
+
+  async setConversiones(id: string, items: SetConversionDto[]): Promise<ProductoConversion[]> {
+    const productoId = parseInt(id);
+    await db.$transaction(async tx => {
+      await tx.productoUnidadConversion.deleteMany({ where: { productoId } });
+      if (items.length > 0) {
+        await tx.productoUnidadConversion.createMany({
+          data: items.map(i => ({
+            productoId,
+            unidadMedidaId: parseInt(i.unidadMedidaId),
+            factor: i.factor,
+          })),
+        });
+      }
+    });
+    return this.getConversiones(id);
   },
 
   async updateStock(id: string, cantidad: number): Promise<Producto> {
@@ -274,5 +344,17 @@ export const productosRepository = {
     return items
       .filter(p => p.stock <= p.stockMinimo)
       .map(toDto);
+  },
+
+  /** Garantiza que cada producto tenga código de barras, generándolo si falta. */
+  async ensureCodigosBarras(ids: string[]): Promise<Producto[]> {
+    const numericIds = ids.map(id => parseInt(id));
+    const rows = await db.producto.findMany({ where: { id: { in: numericIds } } });
+    const result = await Promise.all(rows.map(async row => {
+      if (row.codigoBarras) return row;
+      const codigoBarras = await uniqueEan13();
+      return db.producto.update({ where: { id: row.id }, data: { codigoBarras } });
+    }));
+    return result.map(toDto);
   },
 };

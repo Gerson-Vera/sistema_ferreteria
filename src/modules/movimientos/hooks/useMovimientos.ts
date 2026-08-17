@@ -8,6 +8,7 @@ const EMPTY: PaginatedResponse<MovimientoInventario> = { data: [], total: 0, pag
 
 type Filters = {
   productoId?: string;
+  almacenId?: string;
   tipo?: string;
   desde?: string;
   hasta?: string;

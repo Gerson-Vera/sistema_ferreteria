@@ -10,7 +10,7 @@ import { useToast } from '@/shared/context/ToastContext';
 import ComprasTable from '@/modules/compras/components/ComprasTable';
 import CompraRecibirDialog from '@/modules/compras/components/CompraRecibirDialog';
 import { useCompras } from '@/modules/compras/hooks/useCompras';
-import type { Compra } from '@/modules/compras/types';
+import type { Compra, RecibirCompraItemDto } from '@/modules/compras/types';
 
 export default function ComprasPage() {
   const router = useRouter();
@@ -22,14 +22,16 @@ export default function ComprasPage() {
   const [anularTarget, setAnularTarget] = useState<Compra | null>(null);
   const [procesando, setProcesando] = useState(false);
 
-  const handleRecibir = async (compraId: string, itemsRecibidos: string[]) => {
+  const handleRecibir = async (compraId: string, items: RecibirCompraItemDto[]) => {
     setProcesando(true);
+    const totalPendiente = recibirTarget?.items.reduce((s, i) => s + (i.cantidad - i.cantidadRecibida), 0) ?? 0;
+    const totalARecibir = items.reduce((s, i) => s + i.cantidad, 0);
     try {
-      await recibir(compraId, itemsRecibidos);
+      await recibir(compraId, items);
       showToast(
-        itemsRecibidos.length === recibirTarget?.items.length
-          ? 'Compra marcada como recibida'
-          : `Recepción parcial registrada (${itemsRecibidos.length} de ${recibirTarget?.items.length} productos)`,
+        totalARecibir >= totalPendiente
+          ? 'Compra recibida por completo'
+          : `Recepción parcial registrada (${totalARecibir} de ${totalPendiente} unidades pendientes)`,
         'success',
       );
       setRecibirTarget(null);

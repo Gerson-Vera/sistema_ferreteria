@@ -6,8 +6,12 @@ import type { QueryMovimientoInput } from '../schemas';
 function toDto(row: {
   id: number;
   productoId: number;
+  producto: { descripcion: string };
+  almacenId: number | null;
+  almacen: { nombre: string } | null;
   tipo: string;
   cantidad: number;
+  costoUnitario: unknown;
   stockAnterior: number;
   stockNuevo: number;
   referenciaId: number | null;
@@ -19,8 +23,12 @@ function toDto(row: {
   return {
     id: String(row.id),
     productoId: String(row.productoId),
+    productoNombre: row.producto.descripcion,
+    almacenId: row.almacenId !== null ? String(row.almacenId) : null,
+    almacenNombre: row.almacen?.nombre ?? null,
     tipo: row.tipo as TipoMovimiento,
     cantidad: row.cantidad,
+    costoUnitario: row.costoUnitario !== null && row.costoUnitario !== undefined ? Number(row.costoUnitario) : null,
     stockAnterior: row.stockAnterior,
     stockNuevo: row.stockNuevo,
     referenciaId: row.referenciaId !== null ? String(row.referenciaId) : null,
@@ -39,6 +47,7 @@ export const movimientosRepository = {
 
     const where: Record<string, unknown> = { estado: true };
     if (params.productoId) where.productoId = parseInt(params.productoId);
+    if (params.almacenId) where.almacenId = parseInt(params.almacenId);
     if (params.tipo) where.tipo = params.tipo;
     if (params.desde || params.hasta) {
       where.creadoEn = {
@@ -53,6 +62,10 @@ export const movimientosRepository = {
         skip,
         take: limit,
         orderBy: { creadoEn: 'desc' },
+        include: {
+          producto: { select: { descripcion: true } },
+          almacen: { select: { nombre: true } },
+        },
       }),
       db.movimientoInventario.count({ where }),
     ]);

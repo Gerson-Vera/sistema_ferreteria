@@ -59,7 +59,7 @@ export const ordenesCompraService = {
 
     await sendEmail({
       to: orden.proveedorEmail,
-      subject: `Orden de Compra ${orden.numero} — Ferretería`,
+      subject: `Orden de Compra ${orden.numero} — Inversiones Andrew Valentino E.I.R.L.`,
       html,
     });
 

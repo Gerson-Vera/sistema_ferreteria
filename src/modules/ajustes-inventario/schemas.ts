@@ -7,6 +7,7 @@ const ajusteItemSchema = z.object({
 
 export const createAjusteSchema = z.object({
   motivo: z.string().min(3, 'Motivo requerido').max(200),
+  almacenId: z.string().min(1, 'Almacén requerido'),
   observaciones: z.string().max(500).optional(),
   items: z.array(ajusteItemSchema).min(1, 'El ajuste debe tener al menos un producto'),
 });

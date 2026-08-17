@@ -21,6 +21,9 @@ import ScaleIcon            from '@mui/icons-material/Scale';
 import ShieldIcon           from '@mui/icons-material/Shield';
 import ShoppingCartIcon     from '@mui/icons-material/ShoppingCart';
 import SpeedIcon            from '@mui/icons-material/Speed';
+import SwapHorizIcon        from '@mui/icons-material/SwapHoriz';
+import FactCheckIcon        from '@mui/icons-material/FactCheck';
+import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import TuneIcon             from '@mui/icons-material/Tune';
 import WarehouseIcon        from '@mui/icons-material/Warehouse';
 import WarningAmberIcon     from '@mui/icons-material/WarningAmber';
@@ -50,6 +53,9 @@ export const ICON_MAP: Record<string, SvgIconComponent> = {
   Shield:             ShieldIcon,
   ShoppingCart:       ShoppingCartIcon,
   Speed:              SpeedIcon,
+  SwapHoriz:          SwapHorizIcon,
+  FactCheck:          FactCheckIcon,
+  AssignmentReturn:   AssignmentReturnIcon,
   Tune:               TuneIcon,
   Warehouse:          WarehouseIcon,
   WarningAmber:       WarningAmberIcon,

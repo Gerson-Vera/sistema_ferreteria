@@ -1,4 +1,4 @@
-import type { Compra, CreateCompraDto } from '../types';
+import type { Compra, CreateCompraDto, RecibirCompraItemDto } from '../types';
 import type { PaginatedResponse } from '@/shared/types';
 
 const BASE = '/api/compras';
@@ -42,11 +42,11 @@ export const comprasClientService = {
     return json.data as Compra;
   },
 
-  async recibir(id: string, itemsRecibidos?: string[]): Promise<Compra> {
+  async recibir(id: string, items?: RecibirCompraItemDto[]): Promise<Compra> {
     const res = await fetch(`${BASE}/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'recibir', itemsRecibidos }),
+      body: JSON.stringify({ accion: 'recibir', items }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

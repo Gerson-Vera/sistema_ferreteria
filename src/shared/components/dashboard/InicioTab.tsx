@@ -161,8 +161,8 @@ export default function InicioTab() {
               mb: 1.5,
             }}
           >
-            Ferretería
-            <Box component="span" sx={{ color: '#F39C12', display: 'block' }}>Victoria</Box>
+            Inversiones
+            <Box component="span" sx={{ color: '#F39C12', display: 'block' }}>Andrew Valentino</Box>
           </Typography>
 
           <Typography sx={{ fontSize: { xs: 14, md: 16 }, color: 'rgba(236,240,241,0.7)', lineHeight: 1.6, maxWidth: 480 }}>
@@ -179,7 +179,7 @@ export default function InicioTab() {
             <SectionHeading title="Nuestra historia" />
             <Box sx={{ ...card, p: 3 }}>
               <Typography sx={{ fontSize: 13.5, color: '#2C3E50', lineHeight: 1.75, mb: 2 }}>
-                Ferretería Victoria fue fundada en 2005 con el propósito de ofrecer a la
+                Inversiones Andrew Valentino E.I.R.L. fue fundada en 2005 con el propósito de ofrecer a la
                 comunidad productos de construcción, herramientas industriales y ferretería
                 en general, con el más alto nivel de atención al cliente y calidad garantizada.
                 A lo largo de los años hemos crecido hasta convertirnos en un referente

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import db from '@/lib/db';
+import { aplicarMovimientoStock, resolverAlmacenId, actualizarCostoPromedio } from '@/lib/inventario/stock';
 import type {
   OrdenCompra, OrdenCompraResumen, OrdenCompraItem,
   CreateOrdenCompraDto, RecibirOrdenResult,
@@ -256,25 +257,24 @@ export const ordenesCompraRepository = {
         ? Math.min(cantidadOrdenada, Math.max(0, producto.stockMaximo - producto.stock))
         : cantidadOrdenada;
 
-      const stockNuevo = producto.stock + cantidadAceptada;
-
       if (cantidadAceptada > 0) {
+        // Recibir en el almacén asignado al producto, o el primero activo
+        const almacenId = await resolverAlmacenId(db, producto.almacenId);
         await db.producto.update({
           where: { id: productoId },
-          data: { stock: stockNuevo, precioCompra },
+          data: { precioCompra },
         });
-        await db.movimientoInventario.create({
-          data: {
-            productoId,
-            tipo:          'entrada_compra',
-            cantidad:      cantidadAceptada,
-            stockAnterior: producto.stock,
-            stockNuevo,
-            referenciaId:   parseInt(id),
-            referenciaTipo: 'orden_compra',
-            observacion:   `Recepción orden ${orden.numero}`,
-            usuarioId,
-          },
+        await actualizarCostoPromedio(db, productoId, cantidadAceptada, precioCompra);
+        await aplicarMovimientoStock(db, {
+          productoId,
+          almacenId,
+          cantidad: cantidadAceptada,
+          tipo: 'entrada_compra',
+          costoUnitario: precioCompra,
+          referenciaId: parseInt(id),
+          referenciaTipo: 'orden_compra',
+          observacion: `Recepción orden ${orden.numero}`,
+          usuarioId,
         });
       }
 
@@ -287,7 +287,7 @@ export const ordenesCompraRepository = {
         productoNombre:    item.descripcion,
         cantidadOrdenada,
         cantidadAceptada,
-        stockFinal:        stockNuevo,
+        stockFinal:        producto.stock + cantidadAceptada,
       });
     }
 

@@ -25,6 +25,7 @@ export default function ProveedorFormDialog({ open, onClose, onSubmit, initialDa
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
   const [direccion, setDireccion] = useState('');
+  const [leadTimeDias, setLeadTimeDias] = useState('0');
   const [errors, setErrors] = useState<{ nombre?: string }>({});
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function ProveedorFormDialog({ open, onClose, onSubmit, initialDa
       setTelefono(initialData?.telefono ?? '');
       setEmail(initialData?.email ?? '');
       setDireccion(initialData?.direccion ?? '');
+      setLeadTimeDias(String(initialData?.leadTimeDias ?? 0));
       setErrors({});
     }
   }, [open, initialData]);
@@ -46,6 +48,7 @@ export default function ProveedorFormDialog({ open, onClose, onSubmit, initialDa
       setErrors(newErrors);
       return;
     }
+    const lead = parseInt(leadTimeDias);
     await onSubmit({
       nombre: nombre.trim(),
       ruc: ruc.trim() || undefined,
@@ -53,6 +56,7 @@ export default function ProveedorFormDialog({ open, onClose, onSubmit, initialDa
       email: email.trim() || undefined,
       telefono: telefono.trim() || undefined,
       direccion: direccion.trim() || undefined,
+      leadTimeDias: !isNaN(lead) && lead >= 0 ? lead : 0,
     });
   };
 
@@ -125,6 +129,20 @@ export default function ProveedorFormDialog({ open, onClose, onSubmit, initialDa
               value={direccion}
               onChange={e => setDireccion(e.target.value)}
               disabled={loading}
+            />
+          </Grid>
+
+          {/* Row 4: Lead time */}
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField
+              label="Tiempo de entrega (días)"
+              fullWidth
+              type="number"
+              value={leadTimeDias}
+              onChange={e => setLeadTimeDias(e.target.value)}
+              helperText="Días que demora en entregar un pedido — usado en Planificación"
+              disabled={loading}
+              slotProps={{ htmlInput: { min: 0, max: 365 } }}
             />
           </Grid>
         </Grid>

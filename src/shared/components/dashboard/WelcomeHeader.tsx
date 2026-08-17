@@ -97,7 +97,7 @@ export default function WelcomeHeader({ nombre, rol }: Props) {
       </Box>
 
       <Typography sx={{ fontSize: 13.5, color: '#95A5A6', mb: 0.25 }}>
-        Bienvenido al Sistema de Gestión de la Ferretería Victoria
+        Bienvenido al Sistema de Gestión de Inversiones Andrew Valentino E.I.R.L.
       </Typography>
 
       {dateStr && (

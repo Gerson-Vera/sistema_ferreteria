@@ -28,6 +28,11 @@ model Usuario {
   ordenes_compra        OrdenCompra[]
   movimientosInventario MovimientoInventario[]
   ajustesInventario     AjusteInventario[]
+  transferencias        TransferenciaAlmacen[]
+  devolucionesVenta     DevolucionVenta[]
+  devolucionesCompra    DevolucionCompra[]
+  despachos             Despacho[]
+  conteos               ConteoInventario[]
 
   @@map("usuarios")
 }
@@ -147,10 +152,39 @@ model Almacen {
   creadoEn      DateTime   @default(now()) @map("creado_en")
   actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
 
-  lista_productos  Producto[]
-  categoriaConfigs CategoriaConfig[]
+  lista_productos   Producto[]
+  categoriaConfigs  CategoriaConfig[]
+  lista_stock       StockAlmacen[]
+  lista_movimientos MovimientoInventario[]
+  lista_ventas      Venta[]
+  lista_compras     Compra[]
+  lista_ajustes     AjusteInventario[]
+  transferenciasOrigen  TransferenciaAlmacen[] @relation("TransferenciaOrigen")
+  transferenciasDestino TransferenciaAlmacen[] @relation("TransferenciaDestino")
+  devolucionesVenta     DevolucionVenta[]      @relation("DevolucionVentaAlmacen")
+  devolucionesCompra    DevolucionCompra[]     @relation("DevolucionCompraAlmacen")
+  conteos               ConteoInventario[]
 
   @@map("almacenes")
+}
+
+// Stock físico de cada producto en cada almacén.
+// Producto.stock se mantiene como el total agregado de todos los almacenes.
+// stockReservado: comprometido por transferencias pendientes; disponible = stock - stockReservado.
+model StockAlmacen {
+  id             Int      @id @default(autoincrement())
+  productoId     Int      @map("producto_id")
+  almacenId      Int      @map("almacen_id")
+  stock          Int      @default(0)
+  stockReservado Int      @default(0) @map("stock_reservado")
+  creadoEn      DateTime @default(now()) @map("creado_en")
+  actualizadoEn DateTime @updatedAt      @map("actualizado_en")
+
+  producto Producto @relation(fields: [productoId], references: [id])
+  almacen  Almacen  @relation(fields: [almacenId],  references: [id])
+
+  @@unique([productoId, almacenId])
+  @@map("stock_almacenes")
 }
 
 model Caja {
@@ -191,8 +225,29 @@ model UnidadMedida {
 
   lista            Producto[]
   categoriaConfigs CategoriaConfig[]
+  conversiones     ProductoUnidadConversion[]
+  ventaItems       VentaItem[]
+  compraItems      CompraItem[]
 
   @@map("unidades_medida")
+}
+
+// Unidades alternativas por producto: 1 <unidad> = <factor> unidades base del producto.
+// Ej.: producto "Cemento" (base: bolsa) con conversión CJA factor 12 → 1 caja = 12 bolsas.
+model ProductoUnidadConversion {
+  id             Int          @id @default(autoincrement())
+  productoId     Int          @map("producto_id")
+  unidadMedidaId Int          @map("unidad_medida_id")
+  factor         Decimal      @db.Decimal(10, 2)
+  estado         Boolean      @default(true)
+  creadoEn       DateTime     @default(now()) @map("creado_en")
+  actualizadoEn  DateTime     @updatedAt      @map("actualizado_en")
+
+  producto       Producto     @relation(fields: [productoId],     references: [id])
+  unidadMedida   UnidadMedida @relation(fields: [unidadMedidaId], references: [id])
+
+  @@unique([productoId, unidadMedidaId])
+  @@map("producto_unidad_conversiones")
 }
 
 // ══════════════════════════════════════════
@@ -208,6 +263,7 @@ model Proveedor {
   email         String?
   telefono      String?
   direccion     String?
+  leadTimeDias  Int        @default(0) @map("lead_time_dias")
   estado        Boolean    @default(true)
   creadoEn      DateTime   @default(now()) @map("creado_en")
   actualizadoEn DateTime   @updatedAt      @map("actualizado_en")
@@ -248,6 +304,7 @@ model Producto {
   img            String?
   precioCompra   Decimal      @db.Decimal(10, 2) @map("precio_compra")
   precioVenta    Decimal      @db.Decimal(10, 2) @map("precio_venta")
+  costoPromedio  Decimal      @default(0) @db.Decimal(10, 2) @map("costo_promedio")
   stock          Int          @default(0)
   stockMinimo    Int          @default(0)         @map("stock_minimo")
   stockMaximo    Int          @default(0)         @map("stock_maximo")
@@ -272,6 +329,12 @@ model Producto {
   lista_movimientos     MovimientoInventario[]
   lista_ajustes         AjusteInventarioItem[]
   lista_ordenes         OrdenCompraItem[]
+  lista_stock           StockAlmacen[]
+  lista_transferencias  TransferenciaAlmacenItem[]
+  lista_devoluciones_venta  DevolucionVentaItem[]
+  lista_devoluciones_compra DevolucionCompraItem[]
+  conversiones          ProductoUnidadConversion[]
+  lista_conteos         ConteoInventarioItem[]
 
   @@map("productos")
 }
@@ -285,6 +348,7 @@ model Venta {
   numero        String      @unique
   clienteId     Int         @map("cliente_id")
   usuarioId     Int         @map("usuario_id")
+  almacenId     Int?        @map("almacen_id")
   subtotal      Decimal     @db.Decimal(10, 2)
   igv           Decimal     @db.Decimal(10, 2)
   total         Decimal     @db.Decimal(10, 2)
@@ -297,7 +361,10 @@ model Venta {
   cliente       Cliente     @relation(fields: [clienteId],   references: [id])
   usuario       Usuario     @relation(fields: [usuarioId],   references: [id])
   tipoPago      TipoPago?   @relation(fields: [tipoPagoId],  references: [id])
+  almacen       Almacen?    @relation(fields: [almacenId],   references: [id])
   lista         VentaItem[]
+  devoluciones  DevolucionVenta[]
+  despachos     Despacho[]
 
   @@map("ventas")
 }
@@ -309,10 +376,14 @@ model VentaItem {
   cantidad       Int
   precioUnitario Decimal  @db.Decimal(10, 2) @map("precio_unitario")
   subtotal       Decimal  @db.Decimal(10, 2)
+  // Unidad en la que se vendió y su equivalencia en unidades base (1 = unidad base)
+  unidadMedidaId Int?     @map("unidad_medida_id")
+  factorUnidad   Decimal  @default(1) @db.Decimal(10, 2) @map("factor_unidad")
   estado         Boolean  @default(true)
 
-  venta          Venta    @relation(fields: [ventaId],    references: [id])
-  producto       Producto @relation(fields: [productoId], references: [id])
+  venta          Venta         @relation(fields: [ventaId],    references: [id])
+  producto       Producto      @relation(fields: [productoId], references: [id])
+  unidadMedida   UnidadMedida? @relation(fields: [unidadMedidaId], references: [id])
 
   @@map("venta_items")
 }
@@ -326,6 +397,7 @@ model Compra {
   numero        String       @unique
   proveedorId   Int          @map("proveedor_id")
   usuarioId     Int          @map("usuario_id")
+  almacenId     Int?         @map("almacen_id")
   subtotal      Decimal      @db.Decimal(10, 2)
   igv           Decimal      @db.Decimal(10, 2)
   total         Decimal      @db.Decimal(10, 2)
@@ -339,7 +411,9 @@ model Compra {
   proveedor     Proveedor    @relation(fields: [proveedorId], references: [id])
   usuario       Usuario      @relation(fields: [usuarioId],   references: [id])
   tipoPago      TipoPago?    @relation(fields: [tipoPagoId],  references: [id])
+  almacen       Almacen?     @relation(fields: [almacenId],   references: [id])
   lista         CompraItem[]
+  devoluciones  DevolucionCompra[]
 
   @@map("compras")
 }
@@ -349,12 +423,18 @@ model CompraItem {
   compraId      Int      @map("compra_id")
   productoId    Int      @map("producto_id")
   cantidad      Int
+  // Cantidad ya ingresada al stock (en la unidad del documento); < cantidad = backorder pendiente
+  cantidadRecibida Int   @default(0) @map("cantidad_recibida")
   costoUnitario Decimal  @db.Decimal(10, 2) @map("costo_unitario")
   subtotal      Decimal  @db.Decimal(10, 2)
+  // Unidad en la que se compró y su equivalencia en unidades base (1 = unidad base)
+  unidadMedidaId Int?    @map("unidad_medida_id")
+  factorUnidad   Decimal @default(1) @db.Decimal(10, 2) @map("factor_unidad")
   estado        Boolean  @default(true)
 
-  compra        Compra   @relation(fields: [compraId],    references: [id])
-  producto      Producto @relation(fields: [productoId],  references: [id])
+  compra        Compra        @relation(fields: [compraId],    references: [id])
+  producto      Producto      @relation(fields: [productoId],  references: [id])
+  unidadMedida  UnidadMedida? @relation(fields: [unidadMedidaId], references: [id])
 
   @@map("compra_items")
 }
@@ -366,8 +446,10 @@ model CompraItem {
 model MovimientoInventario {
   id             Int            @id @default(autoincrement())
   productoId     Int            @map("producto_id")
+  almacenId      Int?           @map("almacen_id")
   tipo           TipoMovimiento
   cantidad       Int
+  costoUnitario  Decimal?       @db.Decimal(10, 2) @map("costo_unitario")
   stockAnterior  Int            @map("stock_anterior")
   stockNuevo     Int            @map("stock_nuevo")
   referenciaId   Int?           @map("referencia_id")
@@ -378,6 +460,7 @@ model MovimientoInventario {
   creadoEn       DateTime       @default(now()) @map("creado_en")
 
   producto       Producto       @relation(fields: [productoId], references: [id])
+  almacen        Almacen?       @relation(fields: [almacenId],  references: [id])
   usuario        Usuario        @relation(fields: [usuarioId],  references: [id])
 
   @@map("movimientos_inventario")
@@ -388,12 +471,14 @@ model AjusteInventario {
   numero        String                 @unique
   motivo        String
   usuarioId     Int                    @map("usuario_id")
+  almacenId     Int?                   @map("almacen_id")
   estado        EstadoAjuste           @default(borrador)
   observaciones String?
   creadoEn      DateTime               @default(now()) @map("creado_en")
   actualizadoEn DateTime               @updatedAt      @map("actualizado_en")
 
   usuario       Usuario                @relation(fields: [usuarioId], references: [id])
+  almacen       Almacen?               @relation(fields: [almacenId], references: [id])
   lista         AjusteInventarioItem[]
 
   @@map("ajustes_inventario")
@@ -482,6 +567,7 @@ enum EstadoVenta {
 
 enum EstadoCompra {
   pendiente
+  parcial
   recibida
   anulada
 }
@@ -493,6 +579,10 @@ enum TipoMovimiento {
   salida_ajuste
   entrada_manual
   salida_manual
+  entrada_transferencia
+  salida_transferencia
+  entrada_devolucion_venta
+  salida_devolucion_compra
 }
 
 enum EstadoAjuste {
@@ -506,6 +596,26 @@ enum EstadoOrden {
   enviada
   recibida
   anulada
+}
+
+enum EstadoTransferencia {
+  pendiente
+  enviada
+  recibida
+  anulada
+}
+
+enum EstadoDevolucion {
+  registrada
+  anulada
+}
+
+enum EstadoDespacho {
+  pendiente
+  en_preparacion
+  despachado
+  entregado
+  anulado
 }
 
 // ══════════════════════════════════════════
@@ -530,6 +640,182 @@ model OrdenCompra {
   lista          OrdenCompraItem[]
 
   @@map("ordenes_compra")
+}
+
+// ══════════════════════════════════════════
+//  LOGÍSTICA — TRANSFERENCIAS, DEVOLUCIONES Y DESPACHOS
+// ══════════════════════════════════════════
+
+model TransferenciaAlmacen {
+  id             Int                        @id @default(autoincrement())
+  numero         String                     @unique
+  almacenOrigenId  Int                      @map("almacen_origen_id")
+  almacenDestinoId Int                      @map("almacen_destino_id")
+  usuarioId      Int                        @map("usuario_id")
+  estado         EstadoTransferencia        @default(pendiente)
+  observaciones  String?
+  fechaEnvio     DateTime?                  @map("fecha_envio")
+  fechaRecepcion DateTime?                  @map("fecha_recepcion")
+  creadoEn       DateTime                   @default(now()) @map("creado_en")
+  actualizadoEn  DateTime                   @updatedAt      @map("actualizado_en")
+
+  almacenOrigen  Almacen                    @relation("TransferenciaOrigen",  fields: [almacenOrigenId],  references: [id])
+  almacenDestino Almacen                    @relation("TransferenciaDestino", fields: [almacenDestinoId], references: [id])
+  usuario        Usuario                    @relation(fields: [usuarioId], references: [id])
+  lista          TransferenciaAlmacenItem[]
+
+  @@map("transferencias_almacen")
+}
+
+model TransferenciaAlmacenItem {
+  id              Int                  @id @default(autoincrement())
+  transferenciaId Int                  @map("transferencia_id")
+  productoId      Int                  @map("producto_id")
+  cantidad        Int
+  estado          Boolean              @default(true)
+
+  transferencia   TransferenciaAlmacen @relation(fields: [transferenciaId], references: [id])
+  producto        Producto             @relation(fields: [productoId],      references: [id])
+
+  @@map("transferencia_almacen_items")
+}
+
+model DevolucionVenta {
+  id            Int                   @id @default(autoincrement())
+  numero        String                @unique
+  ventaId       Int                   @map("venta_id")
+  almacenId     Int                   @map("almacen_id")
+  usuarioId     Int                   @map("usuario_id")
+  motivo        String
+  estado        EstadoDevolucion      @default(registrada)
+  observaciones String?
+  total         Decimal               @db.Decimal(10, 2)
+  creadoEn      DateTime              @default(now()) @map("creado_en")
+  actualizadoEn DateTime              @updatedAt      @map("actualizado_en")
+
+  venta         Venta                 @relation(fields: [ventaId],   references: [id])
+  almacen       Almacen               @relation("DevolucionVentaAlmacen", fields: [almacenId], references: [id])
+  usuario       Usuario               @relation(fields: [usuarioId], references: [id])
+  lista         DevolucionVentaItem[]
+
+  @@map("devoluciones_venta")
+}
+
+model DevolucionVentaItem {
+  id             Int             @id @default(autoincrement())
+  devolucionId   Int             @map("devolucion_id")
+  productoId     Int             @map("producto_id")
+  cantidad       Int
+  precioUnitario Decimal         @db.Decimal(10, 2) @map("precio_unitario")
+  subtotal       Decimal         @db.Decimal(10, 2)
+  estado         Boolean         @default(true)
+
+  devolucion     DevolucionVenta @relation(fields: [devolucionId], references: [id])
+  producto       Producto        @relation(fields: [productoId],   references: [id])
+
+  @@map("devolucion_venta_items")
+}
+
+model DevolucionCompra {
+  id            Int                    @id @default(autoincrement())
+  numero        String                 @unique
+  compraId      Int                    @map("compra_id")
+  almacenId     Int                    @map("almacen_id")
+  usuarioId     Int                    @map("usuario_id")
+  motivo        String
+  estado        EstadoDevolucion       @default(registrada)
+  observaciones String?
+  total         Decimal                @db.Decimal(10, 2)
+  creadoEn      DateTime               @default(now()) @map("creado_en")
+  actualizadoEn DateTime               @updatedAt      @map("actualizado_en")
+
+  compra        Compra                 @relation(fields: [compraId],  references: [id])
+  almacen       Almacen                @relation("DevolucionCompraAlmacen", fields: [almacenId], references: [id])
+  usuario       Usuario                @relation(fields: [usuarioId], references: [id])
+  lista         DevolucionCompraItem[]
+
+  @@map("devoluciones_compra")
+}
+
+model DevolucionCompraItem {
+  id            Int              @id @default(autoincrement())
+  devolucionId  Int              @map("devolucion_id")
+  productoId    Int              @map("producto_id")
+  cantidad      Int
+  costoUnitario Decimal          @db.Decimal(10, 2) @map("costo_unitario")
+  subtotal      Decimal          @db.Decimal(10, 2)
+  estado        Boolean          @default(true)
+
+  devolucion    DevolucionCompra @relation(fields: [devolucionId], references: [id])
+  producto      Producto         @relation(fields: [productoId],   references: [id])
+
+  @@map("devolucion_compra_items")
+}
+
+model Despacho {
+  id               Int            @id @default(autoincrement())
+  numero           String         @unique
+  ventaId          Int            @map("venta_id")
+  usuarioId        Int            @map("usuario_id")
+  direccionEntrega String         @map("direccion_entrega")
+  contacto         String?
+  telefono         String?
+  transportista    String?
+  observaciones    String?
+  estado           EstadoDespacho @default(pendiente)
+  fechaDespacho    DateTime?      @map("fecha_despacho")
+  fechaEntrega     DateTime?      @map("fecha_entrega")
+  creadoEn         DateTime       @default(now()) @map("creado_en")
+  actualizadoEn    DateTime       @updatedAt      @map("actualizado_en")
+
+  venta            Venta          @relation(fields: [ventaId],   references: [id])
+  usuario          Usuario        @relation(fields: [usuarioId], references: [id])
+
+  @@map("despachos")
+}
+
+// ══════════════════════════════════════════
+//  CONTEOS CÍCLICOS / INVENTARIO FÍSICO
+// ══════════════════════════════════════════
+
+enum EstadoConteo {
+  abierto   // planilla generada, en proceso de conteo
+  aplicado  // diferencias ajustadas al stock
+  anulado
+}
+
+model ConteoInventario {
+  id              Int           @id @default(autoincrement())
+  numero          String        @unique
+  almacenId       Int           @map("almacen_id")
+  usuarioId       Int           @map("usuario_id")
+  estado          EstadoConteo  @default(abierto)
+  observaciones   String?
+  fechaAplicacion DateTime?     @map("fecha_aplicacion")
+  creadoEn        DateTime      @default(now()) @map("creado_en")
+  actualizadoEn   DateTime      @updatedAt      @map("actualizado_en")
+
+  almacen         Almacen       @relation(fields: [almacenId], references: [id])
+  usuario         Usuario       @relation(fields: [usuarioId], references: [id])
+  lista           ConteoInventarioItem[]
+
+  @@map("conteos_inventario")
+}
+
+model ConteoInventarioItem {
+  id           Int  @id @default(autoincrement())
+  conteoId     Int  @map("conteo_id")
+  productoId   Int  @map("producto_id")
+  // Stock del sistema capturado al generar la planilla (unidades base)
+  stockSistema Int  @map("stock_sistema")
+  // Stock contado físicamente; null = aún sin contar
+  stockFisico  Int? @map("stock_fisico")
+
+  conteo       ConteoInventario @relation(fields: [conteoId],   references: [id])
+  producto     Producto         @relation(fields: [productoId], references: [id])
+
+  @@unique([conteoId, productoId])
+  @@map("conteo_inventario_items")
 }
 
 model OrdenCompraItem {

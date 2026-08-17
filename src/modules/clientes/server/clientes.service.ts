@@ -16,12 +16,30 @@ export const clientesService = {
 
   async create(data: CreateClienteDto) {
     const existing = await clientesRepository.findByDocumento(data.numeroDocumento);
-    if (existing) throw AppError.conflict(`Ya existe un cliente con documento "${data.numeroDocumento}"`);
+    if (existing) {
+      throw AppError.conflict(`Ya existe un cliente con documento "${data.numeroDocumento}" (${existing.nombre})`);
+    }
+    if (data.email) {
+      const conEmail = await clientesRepository.findByEmail(data.email);
+      if (conEmail) throw AppError.conflict(`El email "${data.email}" ya está registrado para "${conEmail.nombre}"`);
+    }
     return clientesRepository.create(data);
   },
 
   async update(id: string, data: UpdateClienteDto) {
     await this.getById(id);
+    if (data.numeroDocumento) {
+      const existing = await clientesRepository.findByDocumento(data.numeroDocumento);
+      if (existing && existing.id !== id) {
+        throw AppError.conflict(`Ya existe un cliente con documento "${data.numeroDocumento}" (${existing.nombre})`);
+      }
+    }
+    if (data.email) {
+      const conEmail = await clientesRepository.findByEmail(data.email);
+      if (conEmail && conEmail.id !== id) {
+        throw AppError.conflict(`El email "${data.email}" ya está registrado para "${conEmail.nombre}"`);
+      }
+    }
     return clientesRepository.update(id, data);
   },
 

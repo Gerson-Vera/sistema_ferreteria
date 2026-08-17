@@ -7,6 +7,7 @@ export type Producto = {
   img: string | null;
   precioCompra: number;
   precioVenta: number;
+  costoPromedio: number;
   stock: number;
   stockMinimo: number;
   stockMaximo: number;
@@ -42,3 +43,17 @@ export type CreateProductoDto = {
 };
 
 export type UpdateProductoDto = Partial<CreateProductoDto>;
+
+/** Unidad alternativa del producto: 1 <unidad> = <factor> unidades base. */
+export type ProductoConversion = {
+  id: string;
+  unidadMedidaId: string;
+  unidadCodigo: string;
+  unidadNombre: string;
+  factor: number;
+};
+
+export type SetConversionDto = {
+  unidadMedidaId: string;
+  factor: number;
+};

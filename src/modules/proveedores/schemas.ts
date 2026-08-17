@@ -7,6 +7,7 @@ export const createProveedorSchema = z.object({
   email: z.string().email('Email inválido').optional(),
   telefono: z.string().max(20).optional(),
   direccion: z.string().max(300).optional(),
+  leadTimeDias: z.number().int().min(0).max(365).optional(),
 });
 
 export const updateProveedorSchema = createProveedorSchema.partial();

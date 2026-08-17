@@ -14,6 +14,8 @@ export type AjusteInventario = {
   numero: string;
   motivo: string;
   usuarioId: string;
+  almacenId: string | null;
+  almacenNombre: string | null;
   estado: EstadoAjuste;
   observaciones: string | null;
   items: AjusteInventarioItem[];
@@ -28,6 +30,7 @@ export type CreateAjusteItemDto = {
 
 export type CreateAjusteInventarioDto = {
   motivo: string;
+  almacenId: string;
   observaciones?: string;
   items: CreateAjusteItemDto[];
 };

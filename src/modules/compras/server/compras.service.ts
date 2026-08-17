@@ -2,7 +2,7 @@ import { AppError } from '@/lib/errors/AppError';
 import { sendEmail, buildOrdenCompraEmail } from '@/lib/email';
 import db from '@/lib/db';
 import { comprasRepository } from './compras.repository';
-import type { CreateCompraDto } from '../types';
+import type { CreateCompraDto, RecibirCompraItemDto } from '../types';
 import type { QueryCompraInput } from '../schemas';
 
 function generarNumeroCompra(): string {
@@ -67,7 +67,7 @@ export const comprasService = {
         });
         await sendEmail({
           to: proveedor.email,
-          subject: `Compra registrada ${numero} — Ferretería`,
+          subject: `Compra registrada ${numero} — Inversiones Andrew Valentino E.I.R.L.`,
           html,
         });
       }
@@ -78,16 +78,23 @@ export const comprasService = {
     return compra;
   },
 
-  async recibir(id: string, itemIds?: number[]) {
+  async recibir(id: string, items?: RecibirCompraItemDto[]) {
     const compra = await this.getById(id);
-    if (compra.estado !== 'pendiente') throw AppError.badRequest('Solo se pueden recibir compras pendientes');
-    if (itemIds !== undefined && itemIds.length === 0) throw AppError.badRequest('Debe confirmar al menos un producto');
-    return comprasRepository.recibir(id, itemIds);
+    if (compra.estado !== 'pendiente' && compra.estado !== 'parcial') {
+      throw AppError.badRequest('Solo se pueden recibir compras pendientes o parciales');
+    }
+    if (items !== undefined && items.every(i => i.cantidad <= 0)) {
+      throw AppError.badRequest('Debe indicar al menos una cantidad a recibir');
+    }
+    return comprasRepository.recibir(id, items);
   },
 
   async anular(id: string) {
     const compra = await this.getById(id);
     if (compra.estado === 'anulada') throw AppError.badRequest('La compra ya está anulada');
+    if (compra.estado === 'parcial' || compra.estado === 'recibida') {
+      throw AppError.badRequest('La compra ya tiene mercadería recibida; registre una devolución de compra en su lugar');
+    }
     return comprasRepository.anular(id);
   },
 };

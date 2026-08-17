@@ -20,7 +20,7 @@ export type EmailOptions = {
 
 export async function sendEmail(opts: EmailOptions): Promise<void> {
   await transporter.sendMail({
-    from: process.env.MAIL_FROM ?? `"Ferretería" <${process.env.MAIL_USER}>`,
+    from: process.env.MAIL_FROM ?? `"Inversiones Andrew Valentino E.I.R.L." <${process.env.MAIL_USER}>`,
     to: opts.to,
     subject: opts.subject,
     html: opts.html,

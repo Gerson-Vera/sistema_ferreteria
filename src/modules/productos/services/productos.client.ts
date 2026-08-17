@@ -1,4 +1,4 @@
-import type { Producto, CreateProductoDto, UpdateProductoDto } from '../types';
+import type { Producto, CreateProductoDto, UpdateProductoDto, ProductoConversion, SetConversionDto } from '../types';
 import type { PaginatedResponse } from '@/shared/types';
 
 const BASE = '/api/productos';
@@ -73,5 +73,40 @@ export const productosClientService = {
     }
     const json = await res.json() as { data: { url: string } };
     return json.data.url;
+  },
+
+  async ensureCodigosBarras(ids: string[]): Promise<Producto[]> {
+    const res = await fetch(`${BASE}/codigos-barras`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? 'Error al generar códigos de barras');
+    }
+    const json = await res.json();
+    return json.data as Producto[];
+  },
+
+  async getConversiones(id: string): Promise<ProductoConversion[]> {
+    const res = await fetch(`${BASE}/${id}/conversiones`);
+    if (!res.ok) throw new Error('Error al cargar conversiones');
+    const json = await res.json();
+    return json.data as ProductoConversion[];
+  },
+
+  async setConversiones(id: string, items: SetConversionDto[]): Promise<ProductoConversion[]> {
+    const res = await fetch(`${BASE}/${id}/conversiones`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(items),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? 'Error al guardar conversiones');
+    }
+    const json = await res.json();
+    return json.data as ProductoConversion[];
   },
 };

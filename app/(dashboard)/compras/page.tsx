@@ -78,6 +78,7 @@ export default function ComprasPage() {
         onLimitChange={setLimit}
         onRecibir={setRecibirTarget}
         onAnular={setAnularTarget}
+        onVer={() => {}}
       />
 
       <ConfirmDialog
